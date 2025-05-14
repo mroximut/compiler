@@ -7,4 +7,8 @@ public record VirtualRegister(int id) implements Register {
     public String toString() {
         return "%" + id();
     }
+
+    public int getID() {
+        return id();
+    }
 }

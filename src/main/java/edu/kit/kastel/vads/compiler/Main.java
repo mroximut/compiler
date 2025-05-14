@@ -13,6 +13,8 @@ import edu.kit.kastel.vads.compiler.parser.ast.FunctionTree;
 import edu.kit.kastel.vads.compiler.parser.ast.ProgramTree;
 import edu.kit.kastel.vads.compiler.semantic.SemanticAnalysis;
 import edu.kit.kastel.vads.compiler.semantic.SemanticException;
+import edu.kit.kastel.vads.compiler.ir.util.GraphVizPrinter;
+import edu.kit.kastel.vads.compiler.parser.Printer;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -28,6 +30,8 @@ public class Main {
         Path input = Path.of(args[0]);
         Path output = Path.of(args[1]);
         ProgramTree program = lexAndParse(input);
+        System.out.println(Printer.print(program));
+
         try {
             new SemanticAnalysis(program).analyze();
         } catch (SemanticException e) {
@@ -49,9 +53,24 @@ public class Main {
             }
         }
 
-        // TODO: generate assembly and invoke gcc instead of generating abstract assembly
-        String s = new CodeGenerator().generateCode(graphs);
-        Files.writeString(output, s);
+        for (IrGraph graph : graphs) {
+            System.out.println(GraphVizPrinter.print(graph));
+        }
+
+        // Generate assembly code
+        String assembly = new CodeGenerator().generateCode(graphs);
+        Path asmFile = output.resolveSibling(output.getFileName() + ".s");
+        Files.writeString(asmFile, assembly);
+
+        // Compile and link
+        try {
+            compileAssembly(asmFile, output);
+            // Clean up assembly file
+            //Files.deleteIfExists(asmFile);
+        } catch (IOException e) {
+            System.err.println("Compilation failed: " + e.getMessage());
+            System.exit(1);
+        }
     }
 
     private static ProgramTree lexAndParse(Path input) throws IOException {
@@ -72,5 +91,20 @@ public class Main {
             path.resolve(graph.name() + "-" + key + ".vcg"),
             YCompPrinter.print(graph)
         );
+    }
+
+    public static void compileAssembly(Path asmFile, Path outputFile) throws IOException {
+        // Compile assembly file
+        ProcessBuilder pb = new ProcessBuilder("gcc", "-o", outputFile.toString(), asmFile.toString());
+        Process p = pb.start();
+        try {
+            int exitCode = p.waitFor();
+            if (exitCode != 0) {
+                throw new IOException("GCC failed with exit code " + exitCode);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("GCC interrupted", e);
+        }
     }
 }
