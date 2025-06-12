@@ -119,6 +119,49 @@ public class SsaTranslation {
                 case MUL -> data.constructor.newMul(lhs, rhs);
                 case DIV -> projResultDivMod(data, data.constructor.newDiv(lhs, rhs));
                 case MOD -> projResultDivMod(data, data.constructor.newMod(lhs, rhs));
+                case SHL -> data.constructor.newShl(lhs, rhs);
+                case SHR -> data.constructor.newShr(lhs, rhs);
+                case LT -> data.constructor.newLt(lhs, rhs);
+                case LE -> data.constructor.newLe(lhs, rhs);
+                case GT -> data.constructor.newGt(lhs, rhs);
+                case GE -> data.constructor.newGe(lhs, rhs);
+                case EQ -> data.constructor.newEq(lhs, rhs);
+                case NE -> data.constructor.newNe(lhs, rhs);
+                case BITWISE_AND -> data.constructor.newBitwiseAnd(lhs, rhs);
+                case BITWISE_XOR -> data.constructor.newBitwiseXor(lhs, rhs);
+                case BITWISE_OR -> data.constructor.newBitwiseOr(lhs, rhs);
+                // case LOGICAL_AND -> {
+                //     // Short-circuit: if lhs is false, result is false; else evaluate rhs
+                //     Block leftBlock = data.currentBlock();
+                //     Block rightBlock = data.constructor.newBlock();
+                //     Block mergeBlock = data.constructor.newBlock();
+                //     // Branch on lhs: if false, jump to mergeBlock; if true, jump to rightBlock
+                //     data.constructor.newBranch(leftBlock, lhs, rightBlock, mergeBlock);
+                //     // Evaluate rhs in rightBlock
+                //     data.constructor.setCurrentBlock(rightBlock);
+                //     Node rhsVal = binaryOperationTree.rhs().accept(this, data).orElseThrow();
+                //     data.constructor.newJump(rightBlock, mergeBlock);
+                //     // Merge block: phi node selects 0 (false) if lhs was false, rhsVal if lhs was true
+                //     data.constructor.setCurrentBlock(mergeBlock);
+                //     Node phi = data.constructor.newPhi(mergeBlock, data.constructor.newConstInt(0), rhsVal);
+                //     yield phi;
+                // }
+                // case LOGICAL_OR -> {
+                //     // Short-circuit: if lhs is true, result is true; else evaluate rhs
+                //     Block leftBlock = data.currentBlock();
+                //     Block rightBlock = data.constructor.newBlock();
+                //     Block mergeBlock = data.constructor.newBlock();
+                //     // Branch on lhs: if true, jump to mergeBlock; if false, jump to rightBlock
+                //     data.constructor.newBranch(leftBlock, lhs, mergeBlock, rightBlock);
+                //     // Evaluate rhs in rightBlock
+                //     data.constructor.setCurrentBlock(rightBlock);
+                //     Node rhsVal = binaryOperationTree.rhs().accept(this, data).orElseThrow();
+                //     data.constructor.newJump(rightBlock, mergeBlock);
+                //     // Merge block: phi node selects 1 (true) if lhs was true, rhsVal if lhs was false
+                //     data.constructor.setCurrentBlock(mergeBlock);
+                //     Node phi = data.constructor.newPhi(mergeBlock, data.constructor.newConstInt(1), rhsVal);
+                //     yield phi;
+                // }
                 default ->
                     throw new IllegalArgumentException("not a binary expression operator " + binaryOperationTree.operatorType());
             };

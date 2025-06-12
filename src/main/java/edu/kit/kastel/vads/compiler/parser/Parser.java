@@ -28,6 +28,7 @@ import edu.kit.kastel.vads.compiler.parser.ast.TypeTree;
 import edu.kit.kastel.vads.compiler.parser.ast.UnaryOperationTree;
 import edu.kit.kastel.vads.compiler.parser.symbol.Name;
 import edu.kit.kastel.vads.compiler.parser.type.BasicType;
+import edu.kit.kastel.vads.compiler.parser.ast.BooleanLiteralTree;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -75,7 +76,7 @@ public class Parser {
 
     private StatementTree parseStatement() {
         StatementTree statement;
-        if (this.tokenSource.peek().isKeyword(KeywordType.INT)) {
+        if (this.tokenSource.peek().isKeyword(KeywordType.INT) || this.tokenSource.peek().isKeyword(KeywordType.BOOL)) {
             statement = parseDeclaration();
         } else if (this.tokenSource.peek().isKeyword(KeywordType.RETURN)) {
             statement = parseReturn();
@@ -87,14 +88,23 @@ public class Parser {
     }
 
     private StatementTree parseDeclaration() {
-        Keyword type = this.tokenSource.expectKeyword(KeywordType.INT);
+        BasicType type;
+        if (this.tokenSource.peek().isKeyword(KeywordType.INT)) {
+            this.tokenSource.expectKeyword(KeywordType.INT);
+            type = BasicType.INT;
+        } else if (this.tokenSource.peek().isKeyword(KeywordType.BOOL)) {
+            this.tokenSource.expectKeyword(KeywordType.BOOL);
+            type = BasicType.BOOL;
+        } else {
+            throw new ParseException("expected type (int or bool) but got " + this.tokenSource.peek());
+        }
         Identifier ident = this.tokenSource.expectIdentifier();
         ExpressionTree expr = null;
         if (this.tokenSource.peek().isOperator(OperatorType.ASSIGN)) {
             this.tokenSource.expectOperator(OperatorType.ASSIGN);
             expr = parseExpression();
         }
-        return new DeclarationTree(new TypeTree(BasicType.INT, type.span()), name(ident), expr);
+        return new DeclarationTree(new TypeTree(type, this.tokenSource.peek().span()), name(ident), expr);
     }
 
     private StatementTree parseSimple() {
@@ -135,6 +145,114 @@ public class Parser {
     }
 
     private ExpressionTree parseExpression() {
+        return parseLogicalOr();
+    }
+
+    private ExpressionTree parseLogicalOr() {
+        ExpressionTree lhs = parseLogicalAnd();
+        while (true) {
+            if (this.tokenSource.peek() instanceof Operator(var type, _)
+                && (type == OperatorType.LOGICAL_OR)) {
+                this.tokenSource.consume();
+                lhs = new BinaryOperationTree(lhs, parseLogicalAnd(), type);
+            } else {
+                return lhs;
+            }
+        }
+    }
+
+    private ExpressionTree parseLogicalAnd() {
+        ExpressionTree lhs = parseBitwiseOr();
+        while (true) {
+            if (this.tokenSource.peek() instanceof Operator(var type, _)
+                && (type == OperatorType.LOGICAL_AND)) {
+                this.tokenSource.consume();
+                lhs = new BinaryOperationTree(lhs, parseBitwiseOr(), type);
+            } else {
+                return lhs;
+            }
+        }
+    }
+
+    private ExpressionTree parseBitwiseOr() {
+        ExpressionTree lhs = parseBitwiseXOr();
+        while (true) {
+            if (this.tokenSource.peek() instanceof Operator(var type, _)
+                && (type == OperatorType.BITWISE_OR)) {
+                this.tokenSource.consume();
+                lhs = new BinaryOperationTree(lhs, parseBitwiseXOr(), type);
+            } else {
+                return lhs;
+            }
+        }
+    }
+
+    private ExpressionTree parseBitwiseXOr() {
+        ExpressionTree lhs = parseBitwiseAnd();
+        while (true) {
+            if (this.tokenSource.peek() instanceof Operator(var type, _)
+                && (type == OperatorType.BITWISE_XOR)) {
+                this.tokenSource.consume();
+                lhs = new BinaryOperationTree(lhs, parseBitwiseAnd(), type);
+            } else {
+                return lhs;
+            }
+        }
+    }
+
+    private ExpressionTree parseBitwiseAnd() {
+        ExpressionTree lhs = parseEquality();
+        while (true) {
+            if (this.tokenSource.peek() instanceof Operator(var type, _)
+                && (type == OperatorType.BITWISE_AND)) {
+                this.tokenSource.consume();
+                lhs = new BinaryOperationTree(lhs, parseEquality(), type);
+            } else {
+                return lhs;
+            }
+        }
+    }
+
+    private ExpressionTree parseEquality() {
+        ExpressionTree lhs = parseComparison();
+        while (true) {
+            if (this.tokenSource.peek() instanceof Operator(var type, _)
+                && (type == OperatorType.EQ || type == OperatorType.NE)) {
+                this.tokenSource.consume();
+                lhs = new BinaryOperationTree(lhs, parseComparison(), type);
+            } else {
+                return lhs;
+            }
+        }
+    }
+
+    private ExpressionTree parseComparison() {
+        ExpressionTree lhs = parseShift();
+        while (true) {
+            if (this.tokenSource.peek() instanceof Operator(var type, _)
+                && (type == OperatorType.LT || type == OperatorType.LE || type == OperatorType.GT || type == OperatorType.GE)) {
+                this.tokenSource.consume();
+                lhs = new BinaryOperationTree(lhs, parseShift(), type);
+            } else {
+                return lhs;
+            }
+        }
+    }
+
+    private ExpressionTree parseShift() {
+        ExpressionTree expression = parseAdditive();
+        while (true) {
+            if (this.tokenSource.peek() instanceof Operator(var type, _)
+                && (type == OperatorType.SHL || type == OperatorType.SHR)) {
+                this.tokenSource.consume();
+                expression = new BinaryOperationTree(expression, parseAdditive(), type);
+            } else {
+                return expression;
+            }
+        }
+    }
+
+    private ExpressionTree parseAdditive() {
         ExpressionTree lhs = parseTerm();
         while (true) {
             if (this.tokenSource.peek() instanceof Operator(var type, _)
@@ -187,6 +305,14 @@ public class Parser {
             case NumberLiteral(String value, int base, Span span) -> {
                 this.tokenSource.consume();
                 yield new LiteralTree(value, base, span);
+            }
+            case Keyword(var type, Span span) when type == KeywordType.TRUE -> {
+                this.tokenSource.consume();
+                yield new BooleanLiteralTree(true, span);
+            }
+            case Keyword(var type, Span span) when type == KeywordType.FALSE -> {
+                this.tokenSource.consume();
+                yield new BooleanLiteralTree(false, span);
             }
             case Token t -> throw new ParseException("invalid factor " + t);
         };

@@ -1,17 +1,30 @@
 package edu.kit.kastel.vads.compiler.ir;
 
 import edu.kit.kastel.vads.compiler.ir.node.AddNode;
+import edu.kit.kastel.vads.compiler.ir.node.BitwiseAndNode;
 import edu.kit.kastel.vads.compiler.ir.node.BitwiseNotNode;
+import edu.kit.kastel.vads.compiler.ir.node.BitwiseOrNode;
+import edu.kit.kastel.vads.compiler.ir.node.BitwiseXorNode;
 import edu.kit.kastel.vads.compiler.ir.node.Block;
+import edu.kit.kastel.vads.compiler.ir.node.BranchNode;
 import edu.kit.kastel.vads.compiler.ir.node.ConstIntNode;
 import edu.kit.kastel.vads.compiler.ir.node.DivNode;
+import edu.kit.kastel.vads.compiler.ir.node.EqNode;
+import edu.kit.kastel.vads.compiler.ir.node.GeNode;
+import edu.kit.kastel.vads.compiler.ir.node.GtNode;
+import edu.kit.kastel.vads.compiler.ir.node.JumpNode;
+import edu.kit.kastel.vads.compiler.ir.node.LeNode;
 import edu.kit.kastel.vads.compiler.ir.node.LogicalNotNode;
+import edu.kit.kastel.vads.compiler.ir.node.LtNode;
 import edu.kit.kastel.vads.compiler.ir.node.ModNode;
 import edu.kit.kastel.vads.compiler.ir.node.MulNode;
+import edu.kit.kastel.vads.compiler.ir.node.NeNode;
 import edu.kit.kastel.vads.compiler.ir.node.Node;
 import edu.kit.kastel.vads.compiler.ir.node.Phi;
 import edu.kit.kastel.vads.compiler.ir.node.ProjNode;
 import edu.kit.kastel.vads.compiler.ir.node.ReturnNode;
+import edu.kit.kastel.vads.compiler.ir.node.ShlNode;
+import edu.kit.kastel.vads.compiler.ir.node.ShrNode;
 import edu.kit.kastel.vads.compiler.ir.node.StartNode;
 import edu.kit.kastel.vads.compiler.ir.node.SubNode;
 import edu.kit.kastel.vads.compiler.ir.optimize.Optimizer;
@@ -32,6 +45,7 @@ class GraphConstructor {
     private final Map<Block, Phi> incompleteSideEffectPhis = new HashMap<>();
     private final Set<Block> sealedBlocks = new HashSet<>();
     private Block currentBlock;
+    private int blockCounter = 0;
 
     public GraphConstructor(Optimizer optimizer, String name) {
         this.optimizer = optimizer;
@@ -71,6 +85,14 @@ class GraphConstructor {
 
     public Node newLogicalNot(Node operand) {
         return this.optimizer.transform(new LogicalNotNode(currentBlock(), operand));
+    }
+
+    public Node newShl(Node left, Node right) {
+        return this.optimizer.transform(new ShlNode(currentBlock(), left, right));
+    }
+
+    public Node newShr(Node left, Node right) {
+        return this.optimizer.transform(new ShrNode(currentBlock(), left, right));
     }
 
     public Node newReturn(Node result) {
@@ -201,6 +223,64 @@ class GraphConstructor {
             phi.appendOperand(readSideEffect(pred.block()));
         }
         return tryRemoveTrivialPhi(phi);
+    }
+
+    public Node newLt(Node left, Node right) {
+        return this.optimizer.transform(new LtNode(this.currentBlock, left, right));
+    }
+
+    public Node newLe(Node left, Node right) {
+        return this.optimizer.transform(new LeNode(this.currentBlock, left, right));
+    }
+
+    public Node newGt(Node left, Node right) {
+        return this.optimizer.transform(new GtNode(this.currentBlock, left, right));
+    }
+
+    public Node newGe(Node left, Node right) {
+        return this.optimizer.transform(new GeNode(this.currentBlock, left, right));
+    }
+
+    public Node newEq(Node left, Node right) {
+        return this.optimizer.transform(new EqNode(this.currentBlock, left, right));
+    }
+
+    public Node newNe(Node left, Node right) {
+        return this.optimizer.transform(new NeNode(this.currentBlock, left, right));
+    }
+
+    public Node newBitwiseAnd(Node left, Node right) {
+        return this.optimizer.transform(new BitwiseAndNode(this.currentBlock, left, right));
+    }
+
+    public Node newBitwiseXor(Node left, Node right) {
+        return this.optimizer.transform(new BitwiseXorNode(this.currentBlock, left, right));
+    }
+
+    public Node newBitwiseOr(Node left, Node right) {
+        return this.optimizer.transform(new BitwiseOrNode(this.currentBlock, left, right));
+    }
+
+    public Block newBlock() {
+        return new Block(this.graph, "block" + (blockCounter++));
+    }
+
+    // public Node newPhi(Block block, Node left, Node right) {
+    //     return new Phi(block, left, right);
+    // }
+
+    public void newBranch(Block block, Node condition, Block trueBlock, Block falseBlock) {
+        // Assuming BranchNode is a class that extends Node and represents a conditional branch
+        new BranchNode(block, condition, trueBlock, falseBlock);
+    }
+
+    public void newJump(Block from, Block to) {
+        // Assuming JumpNode is a class that extends Node and represents an unconditional jump
+        new JumpNode(from, to);
+    }
+
+    public void setCurrentBlock(Block block) {
+        this.currentBlock = block;
     }
 
 }

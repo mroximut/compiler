@@ -5,6 +5,10 @@ public final class Phi extends Node {
         super(block);
     }
 
+    // public Phi(Block block, Node left, Node right) {
+    //     super(block, left, right);
+    // }
+
     public void appendOperand(Node node) {
         addPredecessor(node);
     }

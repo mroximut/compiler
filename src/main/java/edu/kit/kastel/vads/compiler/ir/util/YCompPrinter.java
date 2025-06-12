@@ -4,7 +4,9 @@ import edu.kit.kastel.vads.compiler.ir.IrGraph;
 import edu.kit.kastel.vads.compiler.ir.node.BinaryOperationNode;
 import edu.kit.kastel.vads.compiler.ir.node.BitwiseNotNode;
 import edu.kit.kastel.vads.compiler.ir.node.Block;
+import edu.kit.kastel.vads.compiler.ir.node.BranchNode;
 import edu.kit.kastel.vads.compiler.ir.node.ConstIntNode;
+import edu.kit.kastel.vads.compiler.ir.node.JumpNode;
 import edu.kit.kastel.vads.compiler.ir.node.LogicalNotNode;
 import edu.kit.kastel.vads.compiler.ir.node.Node;
 import edu.kit.kastel.vads.compiler.ir.node.Phi;
@@ -233,6 +235,8 @@ public class YCompPrinter {
             case StartNode _ -> VcgColor.CONTROL_FLOW;
             case BitwiseNotNode _ -> VcgColor.NORMAL;
             case LogicalNotNode _ -> VcgColor.NORMAL;
+            case BranchNode _ -> VcgColor.CONTROL_FLOW;
+            case JumpNode _ -> VcgColor.CONTROL_FLOW;
         };
     }
 
