@@ -1,9 +1,11 @@
 package edu.kit.kastel.vads.compiler.ir;
 
 import edu.kit.kastel.vads.compiler.ir.node.AddNode;
+import edu.kit.kastel.vads.compiler.ir.node.BitwiseNotNode;
 import edu.kit.kastel.vads.compiler.ir.node.Block;
 import edu.kit.kastel.vads.compiler.ir.node.ConstIntNode;
 import edu.kit.kastel.vads.compiler.ir.node.DivNode;
+import edu.kit.kastel.vads.compiler.ir.node.LogicalNotNode;
 import edu.kit.kastel.vads.compiler.ir.node.ModNode;
 import edu.kit.kastel.vads.compiler.ir.node.MulNode;
 import edu.kit.kastel.vads.compiler.ir.node.Node;
@@ -61,6 +63,14 @@ class GraphConstructor {
 
     public Node newMod(Node left, Node right) {
         return this.optimizer.transform(new ModNode(currentBlock(), left, right, readCurrentSideEffect()));
+    }
+
+    public Node newBitwiseNot(Node operand) {
+        return this.optimizer.transform(new BitwiseNotNode(currentBlock(), operand));
+    }
+
+    public Node newLogicalNot(Node operand) {
+        return this.optimizer.transform(new LogicalNotNode(currentBlock(), operand));
     }
 
     public Node newReturn(Node result) {

@@ -21,11 +21,11 @@ import edu.kit.kastel.vads.compiler.parser.ast.LValueIdentTree;
 import edu.kit.kastel.vads.compiler.parser.ast.LValueTree;
 import edu.kit.kastel.vads.compiler.parser.ast.LiteralTree;
 import edu.kit.kastel.vads.compiler.parser.ast.NameTree;
-import edu.kit.kastel.vads.compiler.parser.ast.NegateTree;
 import edu.kit.kastel.vads.compiler.parser.ast.ProgramTree;
 import edu.kit.kastel.vads.compiler.parser.ast.ReturnTree;
 import edu.kit.kastel.vads.compiler.parser.ast.StatementTree;
 import edu.kit.kastel.vads.compiler.parser.ast.TypeTree;
+import edu.kit.kastel.vads.compiler.parser.ast.UnaryOperationTree;
 import edu.kit.kastel.vads.compiler.parser.symbol.Name;
 import edu.kit.kastel.vads.compiler.parser.type.BasicType;
 
@@ -170,7 +170,15 @@ public class Parser {
             }
             case Operator(var type, _) when type == OperatorType.MINUS -> {
                 Span span = this.tokenSource.consume().span();
-                yield new NegateTree(parseFactor(), span);
+                yield new UnaryOperationTree(parseFactor(), OperatorType.MINUS, span);
+            }
+            case Operator(var type, _) when type == OperatorType.BITWISE_NOT -> {
+                Span span = this.tokenSource.consume().span();
+                yield new UnaryOperationTree(parseFactor(), OperatorType.BITWISE_NOT, span);
+            }
+            case Operator(var type, _) when type == OperatorType.LOGICAL_NOT -> {
+                Span span = this.tokenSource.consume().span();
+                yield new UnaryOperationTree(parseFactor(), OperatorType.LOGICAL_NOT, span);
             }
             case Identifier ident -> {
                 this.tokenSource.consume();

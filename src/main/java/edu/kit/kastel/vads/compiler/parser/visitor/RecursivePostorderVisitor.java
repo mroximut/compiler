@@ -2,6 +2,7 @@ package edu.kit.kastel.vads.compiler.parser.visitor;
 
 import edu.kit.kastel.vads.compiler.parser.ast.AssignmentTree;
 import edu.kit.kastel.vads.compiler.parser.ast.BinaryOperationTree;
+import edu.kit.kastel.vads.compiler.parser.ast.BooleanLiteralTree;
 import edu.kit.kastel.vads.compiler.parser.ast.BlockTree;
 import edu.kit.kastel.vads.compiler.parser.ast.DeclarationTree;
 import edu.kit.kastel.vads.compiler.parser.ast.FunctionTree;
@@ -9,11 +10,11 @@ import edu.kit.kastel.vads.compiler.parser.ast.IdentExpressionTree;
 import edu.kit.kastel.vads.compiler.parser.ast.LValueIdentTree;
 import edu.kit.kastel.vads.compiler.parser.ast.LiteralTree;
 import edu.kit.kastel.vads.compiler.parser.ast.NameTree;
-import edu.kit.kastel.vads.compiler.parser.ast.NegateTree;
 import edu.kit.kastel.vads.compiler.parser.ast.ProgramTree;
 import edu.kit.kastel.vads.compiler.parser.ast.ReturnTree;
 import edu.kit.kastel.vads.compiler.parser.ast.StatementTree;
 import edu.kit.kastel.vads.compiler.parser.ast.TypeTree;
+import edu.kit.kastel.vads.compiler.parser.ast.UnaryOperationTree;
 
 /// A visitor that traverses a tree in postorder
 /// @param <T> a type for additional data
@@ -98,13 +99,6 @@ public class RecursivePostorderVisitor<T, R> implements Visitor<T, R> {
     }
 
     @Override
-    public R visit(NegateTree negateTree, T data) {
-        R r = negateTree.expression().accept(this, data);
-        r = this.visitor.visit(negateTree, accumulate(data, r));
-        return r;
-    }
-
-    @Override
     public R visit(ProgramTree programTree, T data) {
         R r;
         T d = data;
@@ -126,6 +120,18 @@ public class RecursivePostorderVisitor<T, R> implements Visitor<T, R> {
     @Override
     public R visit(TypeTree typeTree, T data) {
         return this.visitor.visit(typeTree, data);
+    }
+
+    @Override
+    public R visit(BooleanLiteralTree booleanLiteralTree, T data) {
+        return this.visitor.visit(booleanLiteralTree, data);
+    }
+
+    @Override
+    public R visit(UnaryOperationTree unaryOperationTree, T data) {
+        R r = unaryOperationTree.expression().accept(this, data);
+        r = this.visitor.visit(unaryOperationTree, accumulate(data, r));
+        return r;
     }
 
     protected T accumulate(T data, R value) {

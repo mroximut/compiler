@@ -10,18 +10,19 @@ import edu.kit.kastel.vads.compiler.ir.util.DebugInfoHelper;
 import edu.kit.kastel.vads.compiler.parser.ast.AssignmentTree;
 import edu.kit.kastel.vads.compiler.parser.ast.BinaryOperationTree;
 import edu.kit.kastel.vads.compiler.parser.ast.BlockTree;
+import edu.kit.kastel.vads.compiler.parser.ast.BooleanLiteralTree;
 import edu.kit.kastel.vads.compiler.parser.ast.DeclarationTree;
 import edu.kit.kastel.vads.compiler.parser.ast.FunctionTree;
 import edu.kit.kastel.vads.compiler.parser.ast.IdentExpressionTree;
 import edu.kit.kastel.vads.compiler.parser.ast.LValueIdentTree;
 import edu.kit.kastel.vads.compiler.parser.ast.LiteralTree;
 import edu.kit.kastel.vads.compiler.parser.ast.NameTree;
-import edu.kit.kastel.vads.compiler.parser.ast.NegateTree;
 import edu.kit.kastel.vads.compiler.parser.ast.ProgramTree;
 import edu.kit.kastel.vads.compiler.parser.ast.ReturnTree;
 import edu.kit.kastel.vads.compiler.parser.ast.StatementTree;
 import edu.kit.kastel.vads.compiler.parser.ast.Tree;
 import edu.kit.kastel.vads.compiler.parser.ast.TypeTree;
+import edu.kit.kastel.vads.compiler.parser.ast.UnaryOperationTree;
 import edu.kit.kastel.vads.compiler.parser.symbol.Name;
 import edu.kit.kastel.vads.compiler.parser.visitor.Visitor;
 
@@ -187,12 +188,25 @@ public class SsaTranslation {
         }
 
         @Override
-        public Optional<Node> visit(NegateTree negateTree, SsaTranslation data) {
-            pushSpan(negateTree);
-            Node node = negateTree.expression().accept(this, data).orElseThrow();
-            Node res = data.constructor.newSub(data.constructor.newConstInt(0), node);
+        public Optional<Node> visit(UnaryOperationTree unaryOperationTree, SsaTranslation data) {
+            pushSpan(unaryOperationTree);
+            Node node = unaryOperationTree.expression().accept(this, data).orElseThrow();
+            Node res = switch (unaryOperationTree.operatorType()) {
+                case MINUS -> data.constructor.newSub(data.constructor.newConstInt(0), node);
+                case BITWISE_NOT -> data.constructor.newBitwiseNot(node);
+                case LOGICAL_NOT -> data.constructor.newLogicalNot(node);
+                default -> throw new IllegalArgumentException("Unknown unary operator: " + unaryOperationTree.operatorType());
+            };
             popSpan();
             return Optional.of(res);
+        }
+
+        @Override
+        public Optional<Node> visit(BooleanLiteralTree booleanLiteralTree, SsaTranslation data) {
+            pushSpan(booleanLiteralTree);
+            Node node = data.constructor.newConstInt(booleanLiteralTree.value() ? 1 : 0);
+            popSpan();
+            return Optional.of(node);
         }
 
         @Override

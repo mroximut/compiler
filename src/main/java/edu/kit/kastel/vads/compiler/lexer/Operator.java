@@ -15,18 +15,50 @@ public record Operator(OperatorType type, Span span) implements Token {
     }
 
     public enum OperatorType {
-        ASSIGN_MINUS("-="),
-        MINUS("-"),
+        // Assignment operators
+        ASSIGN("="),
         ASSIGN_PLUS("+="),
-        PLUS("+"),
-        MUL("*"),
+        ASSIGN_MINUS("-="),
         ASSIGN_MUL("*="),
         ASSIGN_DIV("/="),
-        DIV("/"),
         ASSIGN_MOD("%="),
+        ASSIGN_AND("&="),
+        ASSIGN_OR("|="),
+        ASSIGN_XOR("^="),
+        ASSIGN_SHL("<<="),
+        ASSIGN_SHR(">>="),
+
+        // Arithmetic operators
+        PLUS("+"),
+        MINUS("-"),
+        MUL("*"),
+        DIV("/"),
         MOD("%"),
-        ASSIGN("="),
-        ;
+
+        // Bitwise operators
+        BITWISE_AND("&"),
+        BITWISE_OR("|"),
+        BITWISE_XOR("^"),
+        BITWISE_NOT("~"),
+        SHL("<<"),
+        SHR(">>"),
+
+        // Logical operators
+        LOGICAL_AND("&&"),
+        LOGICAL_OR("||"),
+        LOGICAL_NOT("!"),
+
+        // Comparison operators
+        LT("<"),
+        LE("<="),
+        GT(">"),
+        GE(">="),
+        EQ("=="),
+        NE("!="),
+
+        // Ternary operator
+        QUESTION("?"),
+        COLON(":");
 
         private final String value;
 

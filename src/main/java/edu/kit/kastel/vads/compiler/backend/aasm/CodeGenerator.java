@@ -10,11 +10,13 @@ import edu.kit.kastel.vads.compiler.ir.node.DivNode;
 import edu.kit.kastel.vads.compiler.ir.node.ModNode;
 import edu.kit.kastel.vads.compiler.ir.node.MulNode;
 import edu.kit.kastel.vads.compiler.ir.node.Node;
+import edu.kit.kastel.vads.compiler.ir.node.BitwiseNotNode;
 import edu.kit.kastel.vads.compiler.ir.node.Phi;
 import edu.kit.kastel.vads.compiler.ir.node.ProjNode;
 import edu.kit.kastel.vads.compiler.ir.node.ReturnNode;
 import edu.kit.kastel.vads.compiler.ir.node.StartNode;
 import edu.kit.kastel.vads.compiler.ir.node.SubNode;
+import edu.kit.kastel.vads.compiler.ir.node.LogicalNotNode;
 
 import java.util.HashSet;
 import java.util.List;
@@ -96,6 +98,33 @@ public class CodeGenerator {
             case MulNode mul -> binary(builder, registers, mul, "imull");
             case DivNode div -> div(builder, registers, div, "%eax");
             case ModNode mod -> div(builder, registers, mod, "%edx");
+            case BitwiseNotNode not -> {
+                String operand = getPhysicalRegister(registers.get(predecessorSkipProj(not, 0)));
+                String dest = getPhysicalRegister(registers.get(not));
+                builder.append("\n");
+                if (operand.startsWith("-")) {
+                    builder.append("  movl ").append(operand).append(", %r9d\n");
+                    operand = "%r9d";
+                }
+                if (dest.startsWith("-")) {
+                    builder.append("  movl ").append(operand).append(", %r9d\n");
+                    builder.append("  notl %r9d\n");
+                    builder.append("  movl %r9d, ").append(dest).append("\n");
+                } else {
+                    builder.append("  movl ").append(operand).append(", ").append(dest).append("\n");
+                    builder.append("  notl ").append(dest).append("\n");
+                }
+            }
+            case LogicalNotNode not -> {
+                String operand = getPhysicalRegister(registers.get(predecessorSkipProj(not, 0)));
+                String dest = getPhysicalRegister(registers.get(not));
+                builder.append("\n");
+                builder.append("  movl ").append(operand).append(", %eax\n");
+                builder.append("  cmpl $0, %eax\n");
+                builder.append("  sete %al\n");
+                builder.append("  movzbl %al, %eax\n");
+                builder.append("  movl %eax, ").append(dest).append("\n");
+            }
             case ReturnNode r -> builder.repeat(" ", 2).append("movl ")
                 .append(getPhysicalRegister(registers.get(predecessorSkipProj(r, ReturnNode.RESULT))))
                 .append(", %eax")

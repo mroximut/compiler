@@ -36,12 +36,25 @@ public class Lexer {
             case '{' -> separator(SeparatorType.BRACE_OPEN);
             case '}' -> separator(SeparatorType.BRACE_CLOSE);
             case ';' -> separator(SeparatorType.SEMICOLON);
+            
             case '-' -> singleOrAssign(OperatorType.MINUS, OperatorType.ASSIGN_MINUS);
             case '+' -> singleOrAssign(OperatorType.PLUS, OperatorType.ASSIGN_PLUS);
             case '*' -> singleOrAssign(OperatorType.MUL, OperatorType.ASSIGN_MUL);
             case '/' -> singleOrAssign(OperatorType.DIV, OperatorType.ASSIGN_DIV);
             case '%' -> singleOrAssign(OperatorType.MOD, OperatorType.ASSIGN_MOD);
-            case '=' -> new Operator(OperatorType.ASSIGN, buildSpan(1));
+            case '^' -> singleOrAssign(OperatorType.BITWISE_XOR, OperatorType.ASSIGN_XOR);
+
+            case '=' -> singleOrAssign(OperatorType.ASSIGN, OperatorType.EQ);
+            case '!' -> singleOrAssign(OperatorType.LOGICAL_NOT, OperatorType.NE);
+
+            case '<' -> doubleOrSingle(OperatorType.SHL, OperatorType.LT, OperatorType.ASSIGN_SHL, OperatorType.LE);
+            case '>' -> doubleOrSingle(OperatorType.SHR, OperatorType.GT, OperatorType.ASSIGN_SHR, OperatorType.GE);
+            case '&' -> doubleOrSingle(OperatorType.LOGICAL_AND, OperatorType.BITWISE_AND, null, OperatorType.ASSIGN_AND);
+            case '|' -> doubleOrSingle(OperatorType.LOGICAL_OR, OperatorType.BITWISE_OR, null, OperatorType.ASSIGN_OR);
+
+            case '~' -> new Operator(OperatorType.BITWISE_NOT, buildSpan(1));
+            case '?' -> new Operator(OperatorType.QUESTION, buildSpan(1));
+            case ':' -> new Operator(OperatorType.COLON, buildSpan(1));
             default -> {
                 if (isIdentifierChar(peek())) {
                     if (isNumeric(peek())) {
@@ -193,6 +206,19 @@ public class Lexer {
             return new Operator(assign, buildSpan(2));
         }
         return new Operator(single, buildSpan(1));
+    }
+
+    private Token doubleOrSingle(OperatorType doubleOp, OperatorType singleOp, OperatorType doubleAssign, OperatorType singleAssign) {
+        if (hasMore(1) && peek(1) == doubleOp.toString().charAt(1)) {
+            if (hasMore(2) && peek(2) == '=' && doubleAssign != null) {
+                return new Operator(doubleAssign, buildSpan(3));
+            }
+            return new Operator(doubleOp, buildSpan(2));
+        }
+        if (hasMore(1) && peek(1) == '=' && singleAssign != null) {
+            return new Operator(singleAssign, buildSpan(2));
+        }
+        return new Operator(singleOp, buildSpan(1));
     }
 
     private Span buildSpan(int proceed) {
