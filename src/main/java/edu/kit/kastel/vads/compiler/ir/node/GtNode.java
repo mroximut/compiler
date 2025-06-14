@@ -4,14 +4,4 @@ public final class GtNode extends BinaryOperationNode {
     public GtNode(Block block, Node left, Node right) {
         super(block, left, right);
     }
-
-    @Override
-    public boolean equals(Object obj) {
-        return obj instanceof GtNode && super.equals(obj);
-    }
-
-    @Override
-    public int hashCode() {
-        return super.hashCode();
-    }
 } 

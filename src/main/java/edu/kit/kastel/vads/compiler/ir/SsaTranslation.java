@@ -11,9 +11,13 @@ import edu.kit.kastel.vads.compiler.parser.ast.AssignmentTree;
 import edu.kit.kastel.vads.compiler.parser.ast.BinaryOperationTree;
 import edu.kit.kastel.vads.compiler.parser.ast.BlockTree;
 import edu.kit.kastel.vads.compiler.parser.ast.BooleanLiteralTree;
+import edu.kit.kastel.vads.compiler.parser.ast.BreakTree;
+import edu.kit.kastel.vads.compiler.parser.ast.ContinueTree;
 import edu.kit.kastel.vads.compiler.parser.ast.DeclarationTree;
+import edu.kit.kastel.vads.compiler.parser.ast.ForTree;
 import edu.kit.kastel.vads.compiler.parser.ast.FunctionTree;
 import edu.kit.kastel.vads.compiler.parser.ast.IdentExpressionTree;
+import edu.kit.kastel.vads.compiler.parser.ast.IfTree;
 import edu.kit.kastel.vads.compiler.parser.ast.LValueIdentTree;
 import edu.kit.kastel.vads.compiler.parser.ast.LiteralTree;
 import edu.kit.kastel.vads.compiler.parser.ast.NameTree;
@@ -23,11 +27,15 @@ import edu.kit.kastel.vads.compiler.parser.ast.StatementTree;
 import edu.kit.kastel.vads.compiler.parser.ast.Tree;
 import edu.kit.kastel.vads.compiler.parser.ast.TypeTree;
 import edu.kit.kastel.vads.compiler.parser.ast.UnaryOperationTree;
+import edu.kit.kastel.vads.compiler.parser.ast.WhileTree;
+import edu.kit.kastel.vads.compiler.parser.ast.TernaryTree;
 import edu.kit.kastel.vads.compiler.parser.symbol.Name;
 import edu.kit.kastel.vads.compiler.parser.visitor.Visitor;
+import edu.kit.kastel.vads.compiler.ir.node.Phi;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.BinaryOperator;
 
@@ -71,6 +79,8 @@ public class SsaTranslation {
         private static final Optional<Node> NOT_AN_EXPRESSION = Optional.empty();
 
         private final Deque<DebugInfo> debugStack = new ArrayDeque<>();
+        private final Deque<Block> loopHeaders = new ArrayDeque<>();
+        private final Deque<Block> loopExits = new ArrayDeque<>();
 
         private void pushSpan(Tree tree) {
             this.debugStack.push(DebugInfoHelper.getDebugInfo());
@@ -90,6 +100,11 @@ public class SsaTranslation {
                 case ASSIGN_MUL -> data.constructor::newMul;
                 case ASSIGN_DIV -> (lhs, rhs) -> projResultDivMod(data, data.constructor.newDiv(lhs, rhs));
                 case ASSIGN_MOD -> (lhs, rhs) -> projResultDivMod(data, data.constructor.newMod(lhs, rhs));
+                case ASSIGN_AND -> (lhs, rhs) -> data.constructor.newBitwiseAnd(lhs, rhs);
+                case ASSIGN_OR -> (lhs, rhs) -> data.constructor.newBitwiseOr(lhs, rhs);
+                case ASSIGN_XOR -> (lhs, rhs) -> data.constructor.newBitwiseXor(lhs, rhs);
+                case ASSIGN_SHL -> (lhs, rhs) -> data.constructor.newShl(lhs, rhs);
+                case ASSIGN_SHR -> (lhs, rhs) -> data.constructor.newShr(lhs, rhs);
                 case ASSIGN -> null;
                 default ->
                     throw new IllegalArgumentException("not an assignment operator " + assignmentTree.operator());
@@ -130,38 +145,18 @@ public class SsaTranslation {
                 case BITWISE_AND -> data.constructor.newBitwiseAnd(lhs, rhs);
                 case BITWISE_XOR -> data.constructor.newBitwiseXor(lhs, rhs);
                 case BITWISE_OR -> data.constructor.newBitwiseOr(lhs, rhs);
-                // case LOGICAL_AND -> {
-                //     // Short-circuit: if lhs is false, result is false; else evaluate rhs
-                //     Block leftBlock = data.currentBlock();
-                //     Block rightBlock = data.constructor.newBlock();
-                //     Block mergeBlock = data.constructor.newBlock();
-                //     // Branch on lhs: if false, jump to mergeBlock; if true, jump to rightBlock
-                //     data.constructor.newBranch(leftBlock, lhs, rightBlock, mergeBlock);
-                //     // Evaluate rhs in rightBlock
-                //     data.constructor.setCurrentBlock(rightBlock);
-                //     Node rhsVal = binaryOperationTree.rhs().accept(this, data).orElseThrow();
-                //     data.constructor.newJump(rightBlock, mergeBlock);
-                //     // Merge block: phi node selects 0 (false) if lhs was false, rhsVal if lhs was true
-                //     data.constructor.setCurrentBlock(mergeBlock);
-                //     Node phi = data.constructor.newPhi(mergeBlock, data.constructor.newConstInt(0), rhsVal);
-                //     yield phi;
-                // }
-                // case LOGICAL_OR -> {
-                //     // Short-circuit: if lhs is true, result is true; else evaluate rhs
-                //     Block leftBlock = data.currentBlock();
-                //     Block rightBlock = data.constructor.newBlock();
-                //     Block mergeBlock = data.constructor.newBlock();
-                //     // Branch on lhs: if true, jump to mergeBlock; if false, jump to rightBlock
-                //     data.constructor.newBranch(leftBlock, lhs, mergeBlock, rightBlock);
-                //     // Evaluate rhs in rightBlock
-                //     data.constructor.setCurrentBlock(rightBlock);
-                //     Node rhsVal = binaryOperationTree.rhs().accept(this, data).orElseThrow();
-                //     data.constructor.newJump(rightBlock, mergeBlock);
-                //     // Merge block: phi node selects 1 (true) if lhs was true, rhsVal if lhs was false
-                //     data.constructor.setCurrentBlock(mergeBlock);
-                //     Node phi = data.constructor.newPhi(mergeBlock, data.constructor.newConstInt(1), rhsVal);
-                //     yield phi;
-                // }
+                case LOGICAL_OR -> new TernaryTree(
+                    binaryOperationTree.lhs(),
+                    new BooleanLiteralTree(true, binaryOperationTree.span()),
+                    binaryOperationTree.rhs(),
+                    binaryOperationTree.span()
+                ).accept(this, data).orElseThrow();
+                case LOGICAL_AND -> new TernaryTree(
+                    binaryOperationTree.lhs(),
+                    binaryOperationTree.rhs(),
+                    new BooleanLiteralTree(false, binaryOperationTree.span()),
+                    binaryOperationTree.span()
+                ).accept(this, data).orElseThrow();
                 default ->
                     throw new IllegalArgumentException("not a binary expression operator " + binaryOperationTree.operatorType());
             };
@@ -281,6 +276,229 @@ public class SsaTranslation {
             Node projSideEffect = data.constructor.newSideEffectProj(divMod);
             data.constructor.writeCurrentSideEffect(projSideEffect);
             return data.constructor.newResultProj(divMod);
+        }
+
+        @Override
+        public Optional<Node> visit(BreakTree breakTree, SsaTranslation data) {
+            pushSpan(breakTree);
+            if (loopExits.isEmpty()) {
+                throw new IllegalStateException("break statement outside of loop");
+            }
+            data.constructor.newJump(data.currentBlock(), loopExits.peek());
+            popSpan();
+            return NOT_AN_EXPRESSION;
+        }
+
+        @Override
+        public Optional<Node> visit(ContinueTree continueTree, SsaTranslation data) {
+            pushSpan(continueTree);
+            if (loopHeaders.isEmpty()) {
+                throw new IllegalStateException("continue statement outside of loop");
+            }
+            data.constructor.newJump(data.currentBlock(), loopHeaders.peek());
+            popSpan();
+            return NOT_AN_EXPRESSION;
+        }
+
+        @Override
+        public Optional<Node> visit(ForTree forTree, SsaTranslation data) {
+            pushSpan(forTree);
+            
+            forTree.initializer().accept(this, data);
+            new WhileTree(forTree.condition(), 
+                          new BlockTree(List.of(forTree.body(), forTree.increment()), forTree.span()), 
+                          forTree.span()).accept(this, data);
+
+            popSpan();
+            return NOT_AN_EXPRESSION;
+            
+            // // Create blocks for the for loop structure
+            // //Block initBlock = data.constructor.newBlock();    // Block for initializer
+            // Block headerBlock = data.constructor.newBlock();  // Block containing condition check
+            // Block bodyBlock = data.constructor.newBlock();    // Block containing loop body
+            // //Block incrBlock = data.constructor.newBlock();    // Block for increment
+            // Block exitBlock = data.constructor.newBlock();    // Block for after the loop
+
+            // // Process initializer
+            // //data.constructor.setCurrentBlock(initBlock);
+            // forTree.initializer().accept(this, data);
+            // data.constructor.newJump(data.currentBlock(), headerBlock);
+            // //data.constructor.sealBlock(initBlock);
+
+            // // Set current block to header and evaluate the condition
+            // data.constructor.setCurrentBlock(headerBlock);
+            // Node condition = forTree.condition().accept(this, data).orElseThrow();
+
+            // // Create branch based on condition - if true go to body, if false exit loop
+            // data.constructor.newBranch(headerBlock, condition, bodyBlock, exitBlock);
+
+            // // Process the loop body
+            // data.constructor.setCurrentBlock(bodyBlock);
+            // data.constructor.sealBlock(bodyBlock);
+            // forTree.body().accept(this, data);
+
+            // if (!returns(forTree.body())) {
+            //     forTree.increment().accept(this, data);
+            //     data.constructor.newJump(data.currentBlock(), headerBlock);
+            // }
+
+            // // if (!returns(forTree.body())) {
+            // //     data.constructor.newJump(bodyBlock, incrBlock);
+            // // }
+            
+            // // // Process increment
+            // // data.constructor.setCurrentBlock(incrBlock);
+            // // forTree.increment().accept(this, data);
+            // // data.constructor.newJump(incrBlock, headerBlock);
+            // // data.constructor.sealBlock(incrBlock);
+
+            // // Seal header block
+            // data.constructor.sealBlock(headerBlock);
+
+            // // Continue with exit block after loop
+            // data.constructor.setCurrentBlock(exitBlock);
+            // data.constructor.sealBlock(exitBlock);
+
+            // popSpan();
+            // return NOT_AN_EXPRESSION;
+        }
+
+        @Override
+        public Optional<Node> visit(IfTree ifTree, SsaTranslation data) {
+            pushSpan(ifTree);
+            // Create blocks for then, else, and merge
+            Block thenBlock = data.constructor.newBlock();
+            Block mergeBlock = data.constructor.newBlock();
+            Block elseBlock = ifTree.elseBranch() != null ? data.constructor.newBlock() : mergeBlock;
+            
+            // Evaluate condition in current block
+            Node condition = ifTree.condition().accept(this, data).orElseThrow();
+            
+            // Create branch node
+            data.constructor.newBranch(data.currentBlock(), condition, thenBlock, elseBlock);
+            
+            // Process then branch
+            data.constructor.setCurrentBlock(thenBlock);
+            data.constructor.sealBlock(thenBlock);
+            ifTree.thenBranch().accept(this, data);
+            
+            if (!returns(ifTree.thenBranch())) {
+                data.constructor.newJump(data.currentBlock(), mergeBlock);
+            }
+            
+            // Process else branch if it exists
+            if (ifTree.elseBranch() != null) {
+                data.constructor.setCurrentBlock(elseBlock);
+                data.constructor.sealBlock(elseBlock);
+                ifTree.elseBranch().accept(this, data);
+                if (!returns(ifTree.elseBranch())) {
+                    data.constructor.newJump(data.currentBlock(), mergeBlock);
+                }
+            }
+            
+            // Continue with merge block
+            data.constructor.setCurrentBlock(mergeBlock);
+            data.constructor.sealBlock(mergeBlock);
+            
+            popSpan();
+            return NOT_AN_EXPRESSION;
+        }
+
+        @Override
+        public Optional<Node> visit(WhileTree whileTree, SsaTranslation data) {
+            pushSpan(whileTree);
+            
+            // Create blocks for the while loop structure
+            Block headerBlock = data.constructor.newBlock();  // Block containing condition check
+            Block bodyBlock = data.constructor.newBlock();    // Block containing loop body
+            Block exitBlock = data.constructor.newBlock();    // Block for after the loop
+
+            // Track loop blocks
+            loopHeaders.push(headerBlock);
+            loopExits.push(exitBlock);
+
+            // Jump from current block to header block where condition is checked
+            data.constructor.newJump(data.currentBlock(), headerBlock);
+
+            // Set current block to header and evaluate the condition
+            data.constructor.setCurrentBlock(headerBlock);
+            Node condition = whileTree.condition().accept(this, data).orElseThrow();
+
+            // Create branch based on condition - if true go to body, if false exit loop
+            data.constructor.newBranch(data.currentBlock(), condition, bodyBlock, exitBlock);
+
+            // Process the loop body
+            data.constructor.setCurrentBlock(bodyBlock);
+            data.constructor.sealBlock(bodyBlock);
+            whileTree.body().accept(this, data);
+
+            // If body doesn't end in return, add jump back to header for next iteration
+            if (!returns(whileTree.body())) {
+                data.constructor.newJump(data.currentBlock(), headerBlock);
+            }
+            data.constructor.sealBlock(headerBlock);
+
+            // Continue with exit block after loop
+            data.constructor.setCurrentBlock(exitBlock);
+            data.constructor.sealBlock(exitBlock);
+
+            // Pop loop tracking
+            loopHeaders.pop();
+            loopExits.pop();
+
+            popSpan();
+            return NOT_AN_EXPRESSION;
+        }
+
+        @Override
+        public Optional<Node> visit(TernaryTree ternaryTree, SsaTranslation data) {
+            pushSpan(ternaryTree);
+            
+            // Create blocks for the ternary structure
+            Block trueBlock = data.constructor.newBlock();
+            Block falseBlock = data.constructor.newBlock();
+            Block mergeBlock = data.constructor.newBlock();
+            
+            // Evaluate condition in current block
+            Node condition = ternaryTree.condition().accept(this, data).orElseThrow();
+            
+            // Create branch node
+            data.constructor.newBranch(data.currentBlock(), condition, trueBlock, falseBlock);
+            
+            // Process true expression
+            data.constructor.setCurrentBlock(trueBlock);
+            data.constructor.sealBlock(trueBlock);
+            Node trueValue = ternaryTree.trueExpr().accept(this, data).orElseThrow();
+            data.constructor.newJump(trueBlock, mergeBlock);
+            
+            // Process false expression
+            data.constructor.setCurrentBlock(falseBlock);
+            data.constructor.sealBlock(falseBlock);
+            Node falseValue = ternaryTree.falseExpr().accept(this, data).orElseThrow();
+            data.constructor.newJump(falseBlock, mergeBlock);
+            
+            // Continue with merge block
+            data.constructor.setCurrentBlock(mergeBlock);
+            data.constructor.sealBlock(mergeBlock);
+            
+            // Create phi node to merge the results
+            Phi phi = data.constructor.newPhi();
+            phi.appendOperand(trueValue);
+            phi.appendOperand(falseValue);
+            
+            popSpan();
+            return Optional.of(phi);
+        }
+
+        private boolean returns(StatementTree statement) {
+            if (statement instanceof ReturnTree) {
+                return true;
+            }
+            if (statement instanceof BlockTree block) {
+                return !block.statements().isEmpty() && 
+                       block.statements().getLast() instanceof ReturnTree;
+            }
+            return false;
         }
     }
 

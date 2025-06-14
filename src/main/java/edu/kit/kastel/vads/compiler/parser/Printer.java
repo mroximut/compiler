@@ -4,7 +4,11 @@ import edu.kit.kastel.vads.compiler.parser.ast.AssignmentTree;
 import edu.kit.kastel.vads.compiler.parser.ast.BinaryOperationTree;
 import edu.kit.kastel.vads.compiler.parser.ast.BlockTree;
 import edu.kit.kastel.vads.compiler.parser.ast.BooleanLiteralTree;
+import edu.kit.kastel.vads.compiler.parser.ast.BreakTree;
+import edu.kit.kastel.vads.compiler.parser.ast.ContinueTree;
+import edu.kit.kastel.vads.compiler.parser.ast.ForTree;
 import edu.kit.kastel.vads.compiler.parser.ast.IdentExpressionTree;
+import edu.kit.kastel.vads.compiler.parser.ast.IfTree;
 import edu.kit.kastel.vads.compiler.parser.ast.LValueIdentTree;
 import edu.kit.kastel.vads.compiler.parser.ast.LiteralTree;
 import edu.kit.kastel.vads.compiler.parser.ast.NameTree;
@@ -14,8 +18,10 @@ import edu.kit.kastel.vads.compiler.parser.ast.DeclarationTree;
 import edu.kit.kastel.vads.compiler.parser.ast.FunctionTree;
 import edu.kit.kastel.vads.compiler.parser.ast.ProgramTree;
 import edu.kit.kastel.vads.compiler.parser.ast.StatementTree;
+import edu.kit.kastel.vads.compiler.parser.ast.TernaryTree;
 import edu.kit.kastel.vads.compiler.parser.ast.TypeTree;
 import edu.kit.kastel.vads.compiler.parser.ast.UnaryOperationTree;
+import edu.kit.kastel.vads.compiler.parser.ast.WhileTree;
 
 import java.util.List;
 
@@ -113,6 +119,52 @@ public class Printer {
             case LValueIdentTree(var name) -> printTree(name);
             case IdentExpressionTree(var name) -> printTree(name);
             case BooleanLiteralTree(var value, _) -> this.builder.append(value);
+            case IfTree(var condition, var thenBranch, var elseBranch, _) -> {
+                print("if (");
+                printTree(condition);
+                print(") ");
+                printTree(thenBranch);
+                if (elseBranch != null) {
+                    print(" else ");
+                    printTree(elseBranch);
+                }
+                lineBreak();
+            }
+            case WhileTree(var condition, var body, _) -> {
+                print("while (");
+                printTree(condition);
+                print(") ");
+                printTree(body);
+                lineBreak();
+            }
+            case ForTree(var initializer, var condition, var increment, var body, _) -> {
+                print("for (");
+                printTree(initializer);
+                print("; ");
+                printTree(condition);
+                print("; ");
+                printTree(increment);
+                print(") ");
+                printTree(body);
+                lineBreak();
+            }
+            case BreakTree(_) -> {
+                print("break");
+                semicolon();
+            }
+            case ContinueTree(_) -> {
+                print("continue");
+                semicolon();
+            }
+            case TernaryTree(var condition, var trueExpr, var falseExpr, _) -> {
+                print("(");
+                printTree(condition);
+                print(" ? ");
+                printTree(trueExpr);
+                print(" : ");
+                printTree(falseExpr);
+                print(")");
+            }
         }
     }
 

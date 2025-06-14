@@ -27,6 +27,7 @@ import edu.kit.kastel.vads.compiler.ir.node.ShlNode;
 import edu.kit.kastel.vads.compiler.ir.node.ShrNode;
 import edu.kit.kastel.vads.compiler.ir.node.StartNode;
 import edu.kit.kastel.vads.compiler.ir.node.SubNode;
+import edu.kit.kastel.vads.compiler.ir.node.UndefNode;
 import edu.kit.kastel.vads.compiler.ir.optimize.Optimizer;
 import edu.kit.kastel.vads.compiler.parser.symbol.Name;
 
@@ -163,11 +164,41 @@ class GraphConstructor {
     }
 
     Node tryRemoveTrivialPhi(Phi phi) {
-        // TODO: the paper shows how to remove trivial phis.
-        // as this is not a problem in Lab 1 and it is just
-        // a simplification, we recommend to implement this
-        // part yourself.
-        return phi;
+        Node same = null;
+        for (Node op : phi.predecessors()) {
+            if (op == same || op == phi) {
+                continue; // unique value or self-reference
+            }
+            if (same != null) {
+                return phi; // the phi merges at least two values: not trivial
+            }
+            same = op;
+        }
+
+        if (same == null) {
+            same = this.newUndef(); // phi is unreachable or in the start block
+        }
+
+        // Remember all users except the phi itself
+        Set<Node> users = new HashSet<>(phi.graph().successors(phi));
+        users.remove(phi);
+
+        // Reroute all uses of phi to same and remove phi
+        for (Node use : users) {
+            for (int i = 0; i < use.predecessors().size(); i++) {
+                if (use.predecessor(i) == phi) {
+                    use.setPredecessor(i, same);
+                }
+            }
+        }
+
+        // Try to recursively remove all phi users, which might have become trivial
+        for (Node use : users) {
+            if (use instanceof Phi) {
+                tryRemoveTrivialPhi((Phi) use);
+            }
+        }
+        return same;
     }
 
     void sealBlock(Block block) {
@@ -265,18 +296,19 @@ class GraphConstructor {
         return new Block(this.graph, "block" + (blockCounter++));
     }
 
-    // public Node newPhi(Block block, Node left, Node right) {
-    //     return new Phi(block, left, right);
-    // }
+    public Node newUndef() {
+        return new UndefNode(this.currentBlock);
+    }
 
     public void newBranch(Block block, Node condition, Block trueBlock, Block falseBlock) {
-        // Assuming BranchNode is a class that extends Node and represents a conditional branch
-        new BranchNode(block, condition, trueBlock, falseBlock);
+        BranchNode branch = new BranchNode(block, condition, trueBlock, falseBlock);
+        trueBlock.addPredecessor(branch);
+        falseBlock.addPredecessor(branch);
     }
 
     public void newJump(Block from, Block to) {
-        // Assuming JumpNode is a class that extends Node and represents an unconditional jump
-        new JumpNode(from, to);
+        JumpNode jump = new JumpNode(from, to);
+        to.addPredecessor(jump);
     }
 
     public void setCurrentBlock(Block block) {

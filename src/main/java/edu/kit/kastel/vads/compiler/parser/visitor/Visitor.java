@@ -4,9 +4,13 @@ import edu.kit.kastel.vads.compiler.parser.ast.AssignmentTree;
 import edu.kit.kastel.vads.compiler.parser.ast.BinaryOperationTree;
 import edu.kit.kastel.vads.compiler.parser.ast.BooleanLiteralTree;
 import edu.kit.kastel.vads.compiler.parser.ast.BlockTree;
+import edu.kit.kastel.vads.compiler.parser.ast.BreakTree;
+import edu.kit.kastel.vads.compiler.parser.ast.ContinueTree;
 import edu.kit.kastel.vads.compiler.parser.ast.DeclarationTree;
+import edu.kit.kastel.vads.compiler.parser.ast.ForTree;
 import edu.kit.kastel.vads.compiler.parser.ast.FunctionTree;
 import edu.kit.kastel.vads.compiler.parser.ast.IdentExpressionTree;
+import edu.kit.kastel.vads.compiler.parser.ast.IfTree;
 import edu.kit.kastel.vads.compiler.parser.ast.LValueIdentTree;
 import edu.kit.kastel.vads.compiler.parser.ast.LiteralTree;
 import edu.kit.kastel.vads.compiler.parser.ast.NameTree;
@@ -14,6 +18,8 @@ import edu.kit.kastel.vads.compiler.parser.ast.ProgramTree;
 import edu.kit.kastel.vads.compiler.parser.ast.ReturnTree;
 import edu.kit.kastel.vads.compiler.parser.ast.TypeTree;
 import edu.kit.kastel.vads.compiler.parser.ast.UnaryOperationTree;
+import edu.kit.kastel.vads.compiler.parser.ast.WhileTree;
+import edu.kit.kastel.vads.compiler.parser.ast.TernaryTree;
 
 public interface Visitor<T, R> {
 
@@ -25,11 +31,19 @@ public interface Visitor<T, R> {
 
     R visit(BooleanLiteralTree booleanLiteralTree, T data);
 
+    R visit(BreakTree breakTree, T data);
+
+    R visit(ContinueTree continueTree, T data);
+
     R visit(DeclarationTree declarationTree, T data);
+
+    R visit(ForTree forTree, T data);
 
     R visit(FunctionTree functionTree, T data);
 
     R visit(IdentExpressionTree identExpressionTree, T data);
+
+    R visit(IfTree ifTree, T data);
 
     R visit(LiteralTree literalTree, T data);
 
@@ -44,4 +58,8 @@ public interface Visitor<T, R> {
     R visit(TypeTree typeTree, T data);
 
     R visit(UnaryOperationTree unaryOperationTree, T data);
+
+    R visit(WhileTree whileTree, T data);
+
+    R visit(TernaryTree ternaryTree, T data);
 }

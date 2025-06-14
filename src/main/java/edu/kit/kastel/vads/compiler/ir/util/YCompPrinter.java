@@ -14,6 +14,7 @@ import edu.kit.kastel.vads.compiler.ir.node.ProjNode;
 import edu.kit.kastel.vads.compiler.ir.node.ProjNode.SimpleProjectionInfo;
 import edu.kit.kastel.vads.compiler.ir.node.ReturnNode;
 import edu.kit.kastel.vads.compiler.ir.node.StartNode;
+import edu.kit.kastel.vads.compiler.ir.node.UndefNode;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -174,6 +175,16 @@ public class YCompPrinter {
             if (parent instanceof ReturnNode) {
                 // Return needs no label
                 result.add(formatControlflowEdge(parent, block, ""));
+            } else if (parent instanceof BranchNode branch) {
+                if (branch.trueBlock() == block) {
+                    result.add(formatControlflowEdge(parent, block, "true"));
+                } else if (branch.falseBlock() == block) {
+                    result.add(formatControlflowEdge(parent, block, "false"));
+                }
+            } else if (parent instanceof JumpNode) {
+                result.add(formatControlflowEdge(parent, block, ""));
+            } else if (parent instanceof Block) {
+                result.add(formatControlflowEdge(parent, block, ""));
             } else {
                 throw new RuntimeException("Unknown paren type: " + parent);
             }
@@ -237,6 +248,7 @@ public class YCompPrinter {
             case LogicalNotNode _ -> VcgColor.NORMAL;
             case BranchNode _ -> VcgColor.CONTROL_FLOW;
             case JumpNode _ -> VcgColor.CONTROL_FLOW;
+            case UndefNode _ -> VcgColor.NORMAL;
         };
     }
 

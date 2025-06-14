@@ -17,6 +17,7 @@ import edu.kit.kastel.vads.compiler.ir.node.ProjNode;
 import edu.kit.kastel.vads.compiler.ir.node.ReturnNode;
 import edu.kit.kastel.vads.compiler.ir.node.StartNode;
 import edu.kit.kastel.vads.compiler.ir.node.SubNode;
+import edu.kit.kastel.vads.compiler.ir.node.UndefNode;
 import edu.kit.kastel.vads.compiler.ir.node.LogicalNotNode;
 import edu.kit.kastel.vads.compiler.ir.node.ShlNode;
 import edu.kit.kastel.vads.compiler.ir.node.ShrNode;
@@ -158,10 +159,28 @@ public class CodeGenerator {
                 // do nothing, skip line break
                 return;
             }
-            case BranchNode branch -> { 
-                return;
+            case BranchNode branch -> {
+                String condition = getPhysicalRegister(registers.get(predecessorSkipProj(branch, 0)));
+                String trueLabel = ".L" + labelCounter++;
+                String falseLabel = ".L" + labelCounter++;
+                
+                builder.append("\n");
+                builder.append("  movl ").append(condition).append(", %eax\n");
+                builder.append("  testl %eax, %eax\n");
+                builder.append("  jz ").append(falseLabel).append("\n");
+                builder.append("  jmp ").append(trueLabel).append("\n");
+                
+                // Add labels for the blocks
+                builder.append(trueLabel).append(":\n");
+                builder.append(falseLabel).append(":\n");
             }
             case JumpNode jump -> {
+                String targetLabel = ".L" + labelCounter++;
+                builder.append("\n");
+                builder.append("  jmp ").append(targetLabel).append("\n");
+                builder.append(targetLabel).append(":\n");
+            }
+            case UndefNode undef -> {
                 return;
             }
             case ShlNode shl -> {

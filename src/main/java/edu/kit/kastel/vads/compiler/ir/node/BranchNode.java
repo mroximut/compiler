@@ -8,7 +8,7 @@ public final class BranchNode extends Node {
     }
 
     private final Block trueBlock;
-    private final Block falseBlock;
+    private final Block falseBlock;  
 
     public Block trueBlock() {
         return trueBlock;

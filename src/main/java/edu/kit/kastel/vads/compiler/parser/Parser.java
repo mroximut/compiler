@@ -29,6 +29,12 @@ import edu.kit.kastel.vads.compiler.parser.ast.UnaryOperationTree;
 import edu.kit.kastel.vads.compiler.parser.symbol.Name;
 import edu.kit.kastel.vads.compiler.parser.type.BasicType;
 import edu.kit.kastel.vads.compiler.parser.ast.BooleanLiteralTree;
+import edu.kit.kastel.vads.compiler.parser.ast.IfTree;
+import edu.kit.kastel.vads.compiler.parser.ast.WhileTree;
+import edu.kit.kastel.vads.compiler.parser.ast.ForTree;
+import edu.kit.kastel.vads.compiler.parser.ast.BreakTree;
+import edu.kit.kastel.vads.compiler.parser.ast.ContinueTree;
+import edu.kit.kastel.vads.compiler.parser.ast.TernaryTree;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -76,14 +82,28 @@ public class Parser {
 
     private StatementTree parseStatement() {
         StatementTree statement;
-        if (this.tokenSource.peek().isKeyword(KeywordType.INT) || this.tokenSource.peek().isKeyword(KeywordType.BOOL)) {
+        if (this.tokenSource.peek().isKeyword(KeywordType.IF)) {
+            statement = parseIf();
+        } else if (this.tokenSource.peek().isKeyword(KeywordType.WHILE)) {
+            statement = parseWhile();
+        } else if (this.tokenSource.peek().isKeyword(KeywordType.FOR)) {
+            statement = parseFor();
+        } else if (this.tokenSource.peek().isKeyword(KeywordType.BREAK)) {
+            statement = parseBreak();
+            this.tokenSource.expectSeparator(SeparatorType.SEMICOLON);
+        } else if (this.tokenSource.peek().isKeyword(KeywordType.CONTINUE)) {
+            statement = parseContinue();
+            this.tokenSource.expectSeparator(SeparatorType.SEMICOLON);
+        } else if (this.tokenSource.peek().isKeyword(KeywordType.INT) || this.tokenSource.peek().isKeyword(KeywordType.BOOL)) {
             statement = parseDeclaration();
+            this.tokenSource.expectSeparator(SeparatorType.SEMICOLON);
         } else if (this.tokenSource.peek().isKeyword(KeywordType.RETURN)) {
             statement = parseReturn();
+            this.tokenSource.expectSeparator(SeparatorType.SEMICOLON);
         } else {
             statement = parseSimple();
+            this.tokenSource.expectSeparator(SeparatorType.SEMICOLON);
         }
-        this.tokenSource.expectSeparator(SeparatorType.SEMICOLON);
         return statement;
     }
 
@@ -145,7 +165,22 @@ public class Parser {
     }
 
     private ExpressionTree parseExpression() {
-        return parseLogicalOr();
+        return parseTernary();
+    }
+
+    private ExpressionTree parseTernary() {
+        ExpressionTree condition = parseLogicalOr();
+        
+        // Check for ternary operator
+        if (this.tokenSource.peek().isOperator(OperatorType.QUESTION)) {
+            this.tokenSource.consume(); // consume '?'
+            ExpressionTree trueExpr = parseExpression();
+            this.tokenSource.expectOperator(OperatorType.COLON);
+            ExpressionTree falseExpr = parseExpression();
+            return new TernaryTree(condition, trueExpr, falseExpr, condition.span().merge(falseExpr.span()));
+        }
+        
+        return condition;
     }
 
     private ExpressionTree parseLogicalOr() {
@@ -316,6 +351,87 @@ public class Parser {
             }
             case Token t -> throw new ParseException("invalid factor " + t);
         };
+    }
+
+    private StatementTree parseIf() {
+        Keyword ifKeyword = this.tokenSource.expectKeyword(KeywordType.IF);
+        this.tokenSource.expectSeparator(SeparatorType.PAREN_OPEN);
+        ExpressionTree condition = parseExpression();
+        this.tokenSource.expectSeparator(SeparatorType.PAREN_CLOSE);
+        
+        // Parse then branch - can be either a block or a single statement
+        StatementTree thenBranch;
+        if (this.tokenSource.peek().isSeparator(SeparatorType.BRACE_OPEN)) {
+            thenBranch = parseBlock();
+        } else {
+            thenBranch = parseStatement();
+        }
+        
+        // Parse else branch if it exists - can be either a block or a single statement
+        StatementTree elseBranch = null;
+        if (this.tokenSource.peek().isKeyword(KeywordType.ELSE)) {
+            this.tokenSource.expectKeyword(KeywordType.ELSE);
+            if (this.tokenSource.peek().isSeparator(SeparatorType.BRACE_OPEN)) {
+                elseBranch = parseBlock();
+            } else {
+                elseBranch = parseStatement();
+            }
+        }
+        
+        return new IfTree(condition, thenBranch, elseBranch, ifKeyword.span());
+    }
+
+    private StatementTree parseWhile() {
+        Keyword whileKeyword = this.tokenSource.expectKeyword(KeywordType.WHILE);
+        this.tokenSource.expectSeparator(SeparatorType.PAREN_OPEN);
+        ExpressionTree condition = parseExpression();
+        this.tokenSource.expectSeparator(SeparatorType.PAREN_CLOSE);
+        
+        // Parse body - can be either a block or a single statement
+        StatementTree body;
+        if (this.tokenSource.peek().isSeparator(SeparatorType.BRACE_OPEN)) {
+            body = parseBlock();
+        } else {
+            body = parseStatement();
+        }
+        
+        return new WhileTree(condition, body, whileKeyword.span());
+    }
+
+    private StatementTree parseFor() {
+        Keyword forKeyword = this.tokenSource.expectKeyword(KeywordType.FOR);
+        this.tokenSource.expectSeparator(SeparatorType.PAREN_OPEN);
+        
+        StatementTree initializer = parseDeclaration();
+        this.tokenSource.expectSeparator(SeparatorType.SEMICOLON);
+        
+        // Parse condition
+        ExpressionTree condition = parseExpression();
+        this.tokenSource.expectSeparator(SeparatorType.SEMICOLON);
+        
+        // Parse increment
+        StatementTree increment = parseSimple();
+        this.tokenSource.expectSeparator(SeparatorType.PAREN_CLOSE);
+        
+        // Parse body - can be either a block or a single statement
+        StatementTree body;
+        if (this.tokenSource.peek().isSeparator(SeparatorType.BRACE_OPEN)) {
+            body = parseBlock();
+        } else {
+            body = parseStatement();
+        }
+        
+        return new ForTree(initializer, condition, increment, body, forKeyword.span());
+    }
+
+    private StatementTree parseBreak() {
+        Keyword breakKeyword = this.tokenSource.expectKeyword(KeywordType.BREAK);
+        return new BreakTree(breakKeyword.span());
+    }
+
+    private StatementTree parseContinue() {
+        Keyword continueKeyword = this.tokenSource.expectKeyword(KeywordType.CONTINUE);
+        return new ContinueTree(continueKeyword.span());
     }
 
     private static NameTree name(Identifier ident) {
