@@ -126,6 +126,28 @@ public class SsaTranslation {
         @Override
         public Optional<Node> visit(BinaryOperationTree binaryOperationTree, SsaTranslation data) {
             pushSpan(binaryOperationTree);
+
+            Node resLogical = switch (binaryOperationTree.operatorType()) {
+                case LOGICAL_OR -> new TernaryTree(
+                    binaryOperationTree.lhs(),
+                    new BooleanLiteralTree(true, binaryOperationTree.span()),
+                    binaryOperationTree.rhs(),
+                    binaryOperationTree.span()
+                ).accept(this, data).orElseThrow();
+                case LOGICAL_AND -> new TernaryTree(
+                    binaryOperationTree.lhs(),
+                    binaryOperationTree.rhs(),
+                    new BooleanLiteralTree(false, binaryOperationTree.span()),
+                    binaryOperationTree.span()
+                ).accept(this, data).orElseThrow();
+                default -> null;
+            };
+
+            if (resLogical != null) {
+                popSpan();
+                return Optional.of(resLogical);
+            }
+
             Node lhs = binaryOperationTree.lhs().accept(this, data).orElseThrow();
             Node rhs = binaryOperationTree.rhs().accept(this, data).orElseThrow();
             Node res = switch (binaryOperationTree.operatorType()) {
@@ -145,18 +167,7 @@ public class SsaTranslation {
                 case BITWISE_AND -> data.constructor.newBitwiseAnd(lhs, rhs);
                 case BITWISE_XOR -> data.constructor.newBitwiseXor(lhs, rhs);
                 case BITWISE_OR -> data.constructor.newBitwiseOr(lhs, rhs);
-                case LOGICAL_OR -> new TernaryTree(
-                    binaryOperationTree.lhs(),
-                    new BooleanLiteralTree(true, binaryOperationTree.span()),
-                    binaryOperationTree.rhs(),
-                    binaryOperationTree.span()
-                ).accept(this, data).orElseThrow();
-                case LOGICAL_AND -> new TernaryTree(
-                    binaryOperationTree.lhs(),
-                    binaryOperationTree.rhs(),
-                    new BooleanLiteralTree(false, binaryOperationTree.span()),
-                    binaryOperationTree.span()
-                ).accept(this, data).orElseThrow();
+
                 default ->
                     throw new IllegalArgumentException("not a binary expression operator " + binaryOperationTree.operatorType());
             };
