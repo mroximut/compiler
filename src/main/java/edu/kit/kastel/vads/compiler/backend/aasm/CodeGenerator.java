@@ -262,9 +262,9 @@ public class CodeGenerator {
             case GeNode ge -> compare(builder, registers, ge, "setge");
             case EqNode eq -> compare(builder, registers, eq, "sete");
             case NeNode ne -> compare(builder, registers, ne, "setne");
-            case BitwiseAndNode and -> bitwise(builder, registers, and, "andl");
-            case BitwiseXorNode xor -> bitwise(builder, registers, xor, "xorl");
-            case BitwiseOrNode or -> bitwise(builder, registers, or, "orl");
+            case BitwiseAndNode and -> binary(builder, registers, and, "andl");
+            case BitwiseXorNode xor -> binary(builder, registers, xor, "xorl");
+            case BitwiseOrNode or -> binary(builder, registers, or, "orl");
         }
     }
 
@@ -286,18 +286,9 @@ public class CodeGenerator {
             right = "%r8d";
         }
 
-        if (dest.startsWith("-")) {
-            if (!left.equals("%r9d")) {
-                builder.append("  movl ").append(left).append(", %r9d\n");
-            }
-            builder.append("  ").append(opcode).append(" ").append(right).append(", %r9d\n");
-            builder.append("  movl %r9d, ").append(dest).append("\n");
-        } else {
-            if (!left.equals(dest)) {
-                builder.append("  movl ").append(left).append(", ").append(dest).append("\n");
-            }
-            builder.append("  ").append(opcode).append(" ").append(right).append(", ").append(dest).append("\n");
-        }
+        builder.append("  ").append(opcode).append(" ").append(right).append(", ").append(left).append("\n");
+        builder.append("  movl ").append(left).append(", ").append(dest).append("\n");
+        
     }
 
     private static void div(StringBuilder builder, Map<Node, Register> registers, BinaryOperationNode node, String resultReg) {
@@ -338,30 +329,6 @@ public class CodeGenerator {
         builder.append("  movl %eax, ").append(dest).append("\n");
     }
 
-    private static void bitwise(StringBuilder builder, Map<Node, Register> registers, BinaryOperationNode node, String opcode) {
-        String left = getPhysicalRegister(registers.get(predecessorSkipProj(node, BinaryOperationNode.LEFT)));
-        String right = getPhysicalRegister(registers.get(predecessorSkipProj(node, BinaryOperationNode.RIGHT)));
-        String dest = getPhysicalRegister(registers.get(node));
-        builder.append("\n");
-
-        if (left.startsWith("-")) {
-            builder.append("  movl ").append(left).append(", %r9d\n");
-            left = "%r9d";
-        }
-        if (right.startsWith("-")) {
-            builder.append("  movl ").append(right).append(", %r8d\n");
-            right = "%r8d";
-        }
-
-        if (dest.startsWith("-")) {
-            builder.append("  movl ").append(left).append(", %r9d\n");
-            builder.append("  ").append(opcode).append(" ").append(right).append(", %r9d\n");
-            builder.append("  movl %r9d, ").append(dest).append("\n");
-        } else {
-            builder.append("  movl ").append(left).append(", ").append(dest).append("\n");
-            builder.append("  ").append(opcode).append(" ").append(right).append(", ").append(dest).append("\n");
-        }
-    }
 
     private static void shift(StringBuilder builder, Map<Node, Register> registers, BinaryOperationNode node, String opcode) {
         String left = getPhysicalRegister(registers.get(predecessorSkipProj(node, BinaryOperationNode.LEFT)));
@@ -373,19 +340,14 @@ public class CodeGenerator {
             builder.append("  movl ").append(left).append(", %r9d\n");
             left = "%r9d";
         }
-        if (right.startsWith("-")) {
-            builder.append("  movl ").append(right).append(", %ecx\n");
-            right = "%ecx";
-        }
 
-        if (dest.startsWith("-")) {
-            builder.append("  movl ").append(left).append(", %r9d\n");
-            builder.append("  ").append(opcode).append(" %cl, %r9d\n");
-            builder.append("  movl %r9d, ").append(dest).append("\n");
-        } else {
-            builder.append("  movl ").append(left).append(", ").append(dest).append("\n");
-            builder.append("  ").append(opcode).append(" %cl, ").append(dest).append("\n");
-        }
+        builder.append("  movl ").append(right).append(", %ecx\n");
+        
+        builder.append("  movl ").append(left).append(", %r9d\n");
+            
+        builder.append("  ").append(opcode).append(" %cl, ").append(left).append("\n");
+        builder.append("  movl ").append(left).append(", ").append(dest).append("\n");
+ 
     }
 
     private static void unary(StringBuilder builder, Map<Node, Register> registers, Node node, String opcode) {
@@ -397,14 +359,9 @@ public class CodeGenerator {
             builder.append("  movl ").append(operand).append(", %r9d\n");
             operand = "%r9d";
         }
-        if (dest.startsWith("-")) {
-            builder.append("  movl ").append(operand).append(", %r9d\n");
-            builder.append("  ").append(opcode).append(" %r9d\n");
-            builder.append("  movl %r9d, ").append(dest).append("\n");
-        } else {
-            builder.append("  movl ").append(operand).append(", ").append(dest).append("\n");
-            builder.append("  ").append(opcode).append(" ").append(dest).append("\n");
-        }
+ 
+        builder.append("  ").append(opcode).append(" ").append(operand).append("\n");
+        builder.append("  movl ").append(operand).append(", ").append(dest).append("\n");
     }
 
 }
