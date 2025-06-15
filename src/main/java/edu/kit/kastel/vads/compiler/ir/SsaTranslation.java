@@ -181,7 +181,7 @@ public class SsaTranslation {
             for (StatementTree statement : blockTree.statements()) {
                 statement.accept(this, data);
                 // skip everything after a return in a block
-                if (statement instanceof ReturnTree) {
+                if (statement instanceof ReturnTree || statement instanceof BreakTree || statement instanceof ContinueTree) {
                     break;
                 }
             }
