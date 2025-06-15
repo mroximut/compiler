@@ -20,6 +20,7 @@ import edu.kit.kastel.vads.compiler.parser.ast.TypeTree;
 import edu.kit.kastel.vads.compiler.parser.ast.UnaryOperationTree;
 import edu.kit.kastel.vads.compiler.parser.ast.WhileTree;
 import edu.kit.kastel.vads.compiler.parser.ast.TernaryTree;
+import edu.kit.kastel.vads.compiler.parser.ast.NoOpTree;
 
 public interface Visitor<T, R> {
 
@@ -62,4 +63,6 @@ public interface Visitor<T, R> {
     R visit(WhileTree whileTree, T data);
 
     R visit(TernaryTree ternaryTree, T data);
+
+    R visit(NoOpTree noOpTree, T data);
 }

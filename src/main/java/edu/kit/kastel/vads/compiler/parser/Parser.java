@@ -35,6 +35,7 @@ import edu.kit.kastel.vads.compiler.parser.ast.ForTree;
 import edu.kit.kastel.vads.compiler.parser.ast.BreakTree;
 import edu.kit.kastel.vads.compiler.parser.ast.ContinueTree;
 import edu.kit.kastel.vads.compiler.parser.ast.TernaryTree;
+import edu.kit.kastel.vads.compiler.parser.ast.NoOpTree;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -137,7 +138,8 @@ public class Parser {
     private Operator parseAssignmentOperator() {
         if (this.tokenSource.peek() instanceof Operator op) {
             return switch (op.type()) {
-                case ASSIGN, ASSIGN_DIV, ASSIGN_MINUS, ASSIGN_MOD, ASSIGN_MUL, ASSIGN_PLUS -> {
+                case ASSIGN, ASSIGN_DIV, ASSIGN_MINUS, ASSIGN_MOD, ASSIGN_MUL, ASSIGN_PLUS,
+                     ASSIGN_AND, ASSIGN_OR, ASSIGN_XOR, ASSIGN_SHL, ASSIGN_SHR -> {
                     this.tokenSource.consume();
                     yield op;
                 }
@@ -402,7 +404,15 @@ public class Parser {
         Keyword forKeyword = this.tokenSource.expectKeyword(KeywordType.FOR);
         this.tokenSource.expectSeparator(SeparatorType.PAREN_OPEN);
         
-        StatementTree initializer = parseDeclaration();
+        // Parse initializer - can be empty, a declaration, or a simple statement
+        StatementTree initializer;
+        if (this.tokenSource.peek().isSeparator(SeparatorType.SEMICOLON)) {
+            initializer = new NoOpTree(forKeyword.span());
+        } else if (this.tokenSource.peek().isKeyword(KeywordType.INT) || this.tokenSource.peek().isKeyword(KeywordType.BOOL)) {
+            initializer = parseDeclaration();
+        } else {
+            initializer = parseSimple();
+        }
         this.tokenSource.expectSeparator(SeparatorType.SEMICOLON);
         
         // Parse condition
@@ -410,7 +420,14 @@ public class Parser {
         this.tokenSource.expectSeparator(SeparatorType.SEMICOLON);
         
         // Parse increment
-        StatementTree increment = parseSimple();
+        StatementTree increment;
+        if (this.tokenSource.peek().isSeparator(SeparatorType.SEMICOLON)) {
+            increment = new NoOpTree(forKeyword.span());
+        } else if (this.tokenSource.peek().isKeyword(KeywordType.INT) || this.tokenSource.peek().isKeyword(KeywordType.BOOL)) {
+            increment = parseDeclaration();
+        } else {
+            increment = parseSimple();
+        }
         this.tokenSource.expectSeparator(SeparatorType.PAREN_CLOSE);
         
         // Parse body - can be either a block or a single statement

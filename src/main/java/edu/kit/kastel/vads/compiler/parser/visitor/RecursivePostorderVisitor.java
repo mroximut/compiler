@@ -14,6 +14,7 @@ import edu.kit.kastel.vads.compiler.parser.ast.IfTree;
 import edu.kit.kastel.vads.compiler.parser.ast.LValueIdentTree;
 import edu.kit.kastel.vads.compiler.parser.ast.LiteralTree;
 import edu.kit.kastel.vads.compiler.parser.ast.NameTree;
+import edu.kit.kastel.vads.compiler.parser.ast.NoOpTree;
 import edu.kit.kastel.vads.compiler.parser.ast.ProgramTree;
 import edu.kit.kastel.vads.compiler.parser.ast.ReturnTree;
 import edu.kit.kastel.vads.compiler.parser.ast.StatementTree;
@@ -186,6 +187,11 @@ public class RecursivePostorderVisitor<T, R> implements Visitor<T, R> {
         r = ternaryTree.falseExpr().accept(this, accumulate(data, r));
         r = this.visitor.visit(ternaryTree, accumulate(data, r));
         return r;
+    }
+
+    @Override
+    public R visit(NoOpTree noOpTree, T data) {
+        return this.visitor.visit(noOpTree, data);
     }
 
     protected T accumulate(T data, R value) {

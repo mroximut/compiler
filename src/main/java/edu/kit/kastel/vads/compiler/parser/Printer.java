@@ -22,6 +22,7 @@ import edu.kit.kastel.vads.compiler.parser.ast.TernaryTree;
 import edu.kit.kastel.vads.compiler.parser.ast.TypeTree;
 import edu.kit.kastel.vads.compiler.parser.ast.UnaryOperationTree;
 import edu.kit.kastel.vads.compiler.parser.ast.WhileTree;
+import edu.kit.kastel.vads.compiler.parser.ast.NoOpTree;
 
 import java.util.List;
 
@@ -155,6 +156,9 @@ public class Printer {
             case ContinueTree(_) -> {
                 print("continue");
                 semicolon();
+            }
+            case NoOpTree(_) -> {
+                print(";");
             }
             case TernaryTree(var condition, var trueExpr, var falseExpr, _) -> {
                 print("(");

@@ -21,6 +21,7 @@ import edu.kit.kastel.vads.compiler.parser.ast.IfTree;
 import edu.kit.kastel.vads.compiler.parser.ast.LValueIdentTree;
 import edu.kit.kastel.vads.compiler.parser.ast.LiteralTree;
 import edu.kit.kastel.vads.compiler.parser.ast.NameTree;
+import edu.kit.kastel.vads.compiler.parser.ast.NoOpTree;
 import edu.kit.kastel.vads.compiler.parser.ast.ProgramTree;
 import edu.kit.kastel.vads.compiler.parser.ast.ReturnTree;
 import edu.kit.kastel.vads.compiler.parser.ast.StatementTree;
@@ -79,7 +80,7 @@ public class SsaTranslation {
         private static final Optional<Node> NOT_AN_EXPRESSION = Optional.empty();
 
         private final Deque<DebugInfo> debugStack = new ArrayDeque<>();
-        private final Deque<Block> loopHeaders = new ArrayDeque<>();
+        private final Deque<Block> loopHeadersAndIncrs = new ArrayDeque<>();
         private final Deque<Block> loopExits = new ArrayDeque<>();
 
         private void pushSpan(Tree tree) {
@@ -173,6 +174,11 @@ public class SsaTranslation {
             };
             popSpan();
             return Optional.of(res);
+        }
+
+        @Override
+        public Optional<Node> visit(NoOpTree noOpTree, SsaTranslation data) {
+            return NOT_AN_EXPRESSION;
         }
 
         @Override
@@ -303,10 +309,10 @@ public class SsaTranslation {
         @Override
         public Optional<Node> visit(ContinueTree continueTree, SsaTranslation data) {
             pushSpan(continueTree);
-            if (loopHeaders.isEmpty()) {
+            if (loopHeadersAndIncrs.isEmpty()) {
                 throw new IllegalStateException("continue statement outside of loop");
             }
-            data.constructor.newJump(data.currentBlock(), loopHeaders.peek());
+            data.constructor.newJump(data.currentBlock(), loopHeadersAndIncrs.peek());
             popSpan();
             return NOT_AN_EXPRESSION;
         }
@@ -316,62 +322,55 @@ public class SsaTranslation {
             pushSpan(forTree);
             
             forTree.initializer().accept(this, data);
-            new WhileTree(forTree.condition(), 
-                          new BlockTree(List.of(forTree.body(), forTree.increment()), forTree.span()), 
-                          forTree.span()).accept(this, data);
+            // new WhileTree(forTree.condition(), 
+            //               new BlockTree(List.of(forTree.body(), forTree.increment()), forTree.span()), 
+            //               forTree.span()).accept(this, data);
+
+            // Create blocks for the while loop structure
+            Block headerBlock = data.constructor.newBlock();  // Block containing condition check
+            Block bodyBlock = data.constructor.newBlock();    // Block containing loop body
+            Block exitBlock = data.constructor.newBlock();    // Block for after the loop
+            Block incrementBlock = data.constructor.newBlock();    // Block for the increment
+
+            // Track loop blocks
+            loopHeadersAndIncrs.push(incrementBlock);
+            loopExits.push(exitBlock);
+
+            // Jump from current block to header block where condition is checked
+            data.constructor.newJump(data.currentBlock(), headerBlock);
+
+            // Set current block to header and evaluate the condition
+            data.constructor.setCurrentBlock(headerBlock);
+            Node condition = forTree.condition().accept(this, data).orElseThrow();
+
+            // Create branch based on condition - if true go to body, if false exit loop
+            data.constructor.newBranch(data.currentBlock(), condition, bodyBlock, exitBlock);
+
+            // Process the loop body
+            data.constructor.setCurrentBlock(bodyBlock);
+            data.constructor.sealBlock(bodyBlock);
+            forTree.body().accept(this, data);
+
+            if (!returnsBreaksContinues(forTree.body())) {
+                data.constructor.newJump(data.currentBlock(), incrementBlock);
+            }
+            data.constructor.setCurrentBlock(incrementBlock);
+            forTree.increment().accept(this, data);
+            data.constructor.sealBlock(incrementBlock);
+            data.constructor.newJump(data.currentBlock(), headerBlock);
+            data.constructor.sealBlock(headerBlock);
+
+            // Continue with exit block after loop
+            data.constructor.setCurrentBlock(exitBlock);
+            data.constructor.sealBlock(exitBlock);
+
+            // Pop loop tracking
+            loopHeadersAndIncrs.pop();
+            loopExits.pop();
 
             popSpan();
             return NOT_AN_EXPRESSION;
             
-            // // Create blocks for the for loop structure
-            // //Block initBlock = data.constructor.newBlock();    // Block for initializer
-            // Block headerBlock = data.constructor.newBlock();  // Block containing condition check
-            // Block bodyBlock = data.constructor.newBlock();    // Block containing loop body
-            // //Block incrBlock = data.constructor.newBlock();    // Block for increment
-            // Block exitBlock = data.constructor.newBlock();    // Block for after the loop
-
-            // // Process initializer
-            // //data.constructor.setCurrentBlock(initBlock);
-            // forTree.initializer().accept(this, data);
-            // data.constructor.newJump(data.currentBlock(), headerBlock);
-            // //data.constructor.sealBlock(initBlock);
-
-            // // Set current block to header and evaluate the condition
-            // data.constructor.setCurrentBlock(headerBlock);
-            // Node condition = forTree.condition().accept(this, data).orElseThrow();
-
-            // // Create branch based on condition - if true go to body, if false exit loop
-            // data.constructor.newBranch(headerBlock, condition, bodyBlock, exitBlock);
-
-            // // Process the loop body
-            // data.constructor.setCurrentBlock(bodyBlock);
-            // data.constructor.sealBlock(bodyBlock);
-            // forTree.body().accept(this, data);
-
-            // if (!returns(forTree.body())) {
-            //     forTree.increment().accept(this, data);
-            //     data.constructor.newJump(data.currentBlock(), headerBlock);
-            // }
-
-            // // if (!returns(forTree.body())) {
-            // //     data.constructor.newJump(bodyBlock, incrBlock);
-            // // }
-            
-            // // // Process increment
-            // // data.constructor.setCurrentBlock(incrBlock);
-            // // forTree.increment().accept(this, data);
-            // // data.constructor.newJump(incrBlock, headerBlock);
-            // // data.constructor.sealBlock(incrBlock);
-
-            // // Seal header block
-            // data.constructor.sealBlock(headerBlock);
-
-            // // Continue with exit block after loop
-            // data.constructor.setCurrentBlock(exitBlock);
-            // data.constructor.sealBlock(exitBlock);
-
-            // popSpan();
-            // return NOT_AN_EXPRESSION;
         }
 
         @Override
@@ -393,7 +392,7 @@ public class SsaTranslation {
             data.constructor.sealBlock(thenBlock);
             ifTree.thenBranch().accept(this, data);
             
-            if (!returns(ifTree.thenBranch())) {
+            if (!returnsBreaksContinues(ifTree.thenBranch())) {
                 data.constructor.newJump(data.currentBlock(), mergeBlock);
             }
             
@@ -402,7 +401,7 @@ public class SsaTranslation {
                 data.constructor.setCurrentBlock(elseBlock);
                 data.constructor.sealBlock(elseBlock);
                 ifTree.elseBranch().accept(this, data);
-                if (!returns(ifTree.elseBranch())) {
+                if (!returnsBreaksContinues(ifTree.elseBranch())) {
                     data.constructor.newJump(data.currentBlock(), mergeBlock);
                 }
             }
@@ -425,7 +424,7 @@ public class SsaTranslation {
             Block exitBlock = data.constructor.newBlock();    // Block for after the loop
 
             // Track loop blocks
-            loopHeaders.push(headerBlock);
+            loopHeadersAndIncrs.push(headerBlock);
             loopExits.push(exitBlock);
 
             // Jump from current block to header block where condition is checked
@@ -443,8 +442,7 @@ public class SsaTranslation {
             data.constructor.sealBlock(bodyBlock);
             whileTree.body().accept(this, data);
 
-            // If body doesn't end in return, add jump back to header for next iteration
-            if (!returns(whileTree.body())) {
+            if (!returnsBreaksContinues(whileTree.body())) {
                 data.constructor.newJump(data.currentBlock(), headerBlock);
             }
             data.constructor.sealBlock(headerBlock);
@@ -454,7 +452,7 @@ public class SsaTranslation {
             data.constructor.sealBlock(exitBlock);
 
             // Pop loop tracking
-            loopHeaders.pop();
+            loopHeadersAndIncrs.pop();
             loopExits.pop();
 
             popSpan();
@@ -503,13 +501,16 @@ public class SsaTranslation {
             return Optional.of(phi);
         }
 
-        private boolean returns(StatementTree statement) {
-            if (statement instanceof ReturnTree) {
+        private boolean returnsBreaksContinues(StatementTree statement) {
+            if (statement instanceof ReturnTree || statement instanceof BreakTree || statement instanceof ContinueTree) {
                 return true;
             }
             if (statement instanceof BlockTree block) {
-                return !block.statements().isEmpty() && 
-                       block.statements().getLast() instanceof ReturnTree;
+                for (StatementTree s : block.statements()) {
+                    if (returnsBreaksContinues(s)) {
+                        return true;
+                    }
+                }
             }
             return false;
         }
