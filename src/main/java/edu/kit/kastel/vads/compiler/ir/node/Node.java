@@ -17,6 +17,7 @@ public sealed abstract class Node permits BinaryOperationNode, Block, ConstIntNo
     protected Node(Block block, Node... predecessors) {
         this.graph = block.graph();
         this.block = block;
+        //this.block.addNode(this);
         this.predecessors.addAll(List.of(predecessors));
         for (Node predecessor : predecessors) {
             graph.registerSuccessor(predecessor, this);

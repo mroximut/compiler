@@ -31,25 +31,51 @@ import edu.kit.kastel.vads.compiler.ir.node.NeNode;
 import edu.kit.kastel.vads.compiler.ir.node.BitwiseAndNode;
 import edu.kit.kastel.vads.compiler.ir.node.BitwiseXorNode;
 import edu.kit.kastel.vads.compiler.ir.node.BitwiseOrNode;
-//import edu.kit.kastel.vads.compiler.ir.node.LogicalAndNode;
-//import edu.kit.kastel.vads.compiler.ir.node.LogicalOrNode;
 
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.ArrayList;
+import java.util.HashMap;
 
 import static edu.kit.kastel.vads.compiler.ir.util.NodeSupport.predecessorSkipProj;
 
 
 public class CodeGenerator {
 
+    private static List<Block> blocks = new ArrayList<>();
+
     private static final String[] PHYSICAL_REGS = {
         "%r10d", "%r11d", "%r12d", "%r13d", "%r14d", "%r15d" //, "%ebx", "%ecx", "%esi", "%edi"
     };
 
     private static int maxSpillSlot = 0;
-    private static int labelCounter = 0;
+
+    private static Map<Block, List<Node>> collectBlocks(IrGraph graph) {
+        Set<Node> visited = new HashSet<>();
+        Map<Block, List<Node>> blocks = new LinkedHashMap<>();
+        scan(graph.endBlock(), visited, blocks);
+        return blocks;
+    }
+
+    private static List<Block> collector(IrGraph graph) {
+        NodeCollector collector = new NodeCollector(graph);
+        return collector.collect();
+    }
+
+    private static void scan(Node node, Set<Node> visited, Map<Block, List<Node>> blocks) {
+        for (Node predecessor : node.predecessors()) {
+            if (visited.add(predecessor)) {
+                scan(predecessor, visited, blocks);
+            }
+        }
+        if (!blocks.containsKey(node.block())) {
+            blocks.put(node.block(), new ArrayList<>());
+        }
+        blocks.get(node.block()).add(node);
+    }
 
     private static String getPhysicalRegister(Register reg) {
         int idx = reg.getID(); 
@@ -81,7 +107,26 @@ public class CodeGenerator {
         maxSpillSlot = 0; // Reset before codegen
         for (IrGraph graph : program) {
             AasmRegisterAllocator allocator = new AasmRegisterAllocator();
-            Map<Node, Register> registers = allocator.allocateRegisters(graph);
+            blocks = collector(graph);
+            Map<Node, Register> registers = allocator.allocateRegisters(blocks);
+                
+            for (Block block : blocks) {
+                System.out.println(block.label());
+                for (Node node : block.nodes()) {
+                    System.out.println(node.toString());
+                }
+                for (Phi phi : block.phis()) {
+                    System.out.println(phi.toString());
+                }
+                System.out.println("--------------------------------");
+            } 
+
+            for (Node node : registers.keySet()) {
+                System.out.println("--------------------------------");
+                System.out.println(node.toString());
+                System.out.println(registers.get(node).getID());
+                System.out.println("--------------------------------");
+            }
             //builder.append("function ")
             //    .append(graph.name())
             //    .append(" {\n");
@@ -89,6 +134,7 @@ public class CodeGenerator {
             //builder.append("}\n");
             builder.append("\n");
             builder.append(".section .note.GNU-stack,\"\",@progbits");
+            builder.append("\n");
         }
         
         int totalSpillBytes = maxSpillSlot * 4;
@@ -98,40 +144,54 @@ public class CodeGenerator {
     }
 
     private void generateForGraph(IrGraph graph, StringBuilder builder, Map<Node, Register> registers) {
-        Set<Node> visited = new HashSet<>();
-        scan(graph.endBlock(), visited, builder, registers);
-    }
+        // Set<Node> visited = new HashSet<>();
+        // scan(graph.endBlock(), visited, builder, registers);
 
-    private void scan(Node node, Set<Node> visited, StringBuilder builder, Map<Node, Register> registers) {
-        for (Node predecessor : node.predecessors()) {
-            if (visited.add(predecessor)) {
-                scan(predecessor, visited, builder, registers);
-            }
+        for (Block block : blocks) {
+            builder.append("\n");
+            builder.append(".L").append(block.label()).append(":\n");
+            List<Node> blockNodes = block.allNodes();
+            generateForBlock(block, blockNodes, builder, registers);
+            builder.append("\n");
         }
 
+        // Map<Block, List<Node>> blocks = collectBlocks(graph);
+        // for (Block block : blocks.keySet()) {
+        //     System.out.println(block.label());
+        //     for (Node node : blocks.get(block)) {
+        //         System.out.println(node.toString());
+        //     }
+        //     System.out.println("--------------------------------");
+        // }
+        // for (Block block : blocks.keySet()) {
+        //     builder.append(block.label()).append(":\n");
+        //     generateForBlock(block, blocks.get(block), builder, registers);
+        //     builder.append("\n");
+        // }
+    }
+
+    private void generateForBlock(Block block, List<Node> nodes, StringBuilder builder, Map<Node, Register> registers) {
+        for (Node node : nodes) {
+            generateForNode(block, node, builder, registers);
+        }
+    }
+
+    // private void scan(Node node, Set<Node> visited, StringBuilder builder, Map<Node, Register> registers) {
+    //     for (Node predecessor : node.predecessors()) {
+    //         if (visited.add(predecessor)) {
+    //             scan(predecessor, visited, builder, registers);
+    //         }
+    //     }
+    // }
+
+    private void generateForNode(Block block, Node node, StringBuilder builder, Map<Node, Register> registers) {
         switch (node) {
             case AddNode add -> binary(builder, registers, add, "addl");
             case SubNode sub -> binary(builder, registers, sub, "subl");
             case MulNode mul -> binary(builder, registers, mul, "imull");
             case DivNode div -> div(builder, registers, div, "%eax");
             case ModNode mod -> div(builder, registers, mod, "%edx");
-            case BitwiseNotNode not -> {
-                String operand = getPhysicalRegister(registers.get(predecessorSkipProj(not, 0)));
-                String dest = getPhysicalRegister(registers.get(not));
-                builder.append("\n");
-                if (operand.startsWith("-")) {
-                    builder.append("  movl ").append(operand).append(", %r9d\n");
-                    operand = "%r9d";
-                }
-                if (dest.startsWith("-")) {
-                    builder.append("  movl ").append(operand).append(", %r9d\n");
-                    builder.append("  notl %r9d\n");
-                    builder.append("  movl %r9d, ").append(dest).append("\n");
-                } else {
-                    builder.append("  movl ").append(operand).append(", ").append(dest).append("\n");
-                    builder.append("  notl ").append(dest).append("\n");
-                }
-            }
+            case BitwiseNotNode not -> unary(builder, registers, not, "notl");
             case LogicalNotNode not -> {
                 String operand = getPhysicalRegister(registers.get(predecessorSkipProj(not, 0)));
                 String dest = getPhysicalRegister(registers.get(not));
@@ -142,168 +202,70 @@ public class CodeGenerator {
                 builder.append("  movzbl %al, %eax\n");
                 builder.append("  movl %eax, ").append(dest).append("\n");
             }
-            case ReturnNode r -> builder.repeat(" ", 2).append("movl ")
-                .append(getPhysicalRegister(registers.get(predecessorSkipProj(r, ReturnNode.RESULT))))
-                .append(", %eax")
-                .append("\n").repeat(" ", 2)
-                .append("leave")
-                .append("\n").repeat(" ", 2)
-                .append("ret");
+            case ReturnNode r -> {
+                System.out.println("ReturnNode");
+                System.out.println(r.predecessor(ReturnNode.RESULT));
+                builder.repeat(" ", 2).append("movl ")
+                    .append(getPhysicalRegister(registers.get(predecessorSkipProj(r, ReturnNode.RESULT))))
+                    .append(", %eax")
+                    .append("\n").repeat(" ", 2)
+                    .append("leave")
+                    .append("\n").repeat(" ", 2)
+                    .append("ret");
+            }
             case ConstIntNode c -> builder.repeat(" ", 2)
                 .append("movl $")
                 .append(c.value())
                 .append(", ")
-                .append(getPhysicalRegister(registers.get(c)));                
-            case Phi _ -> throw new UnsupportedOperationException("phi");
+                .append(getPhysicalRegister(registers.get(c))).append("\n");                
+            case Phi phi -> {
+                if (phi.isSideEffectPhi()) {
+                    return;
+                }
+                int pos = block.phiPos(phi);
+                String src = getPhysicalRegister(registers.get(predecessorSkipProj(phi, pos)));
+                String dest = getPhysicalRegister(registers.get(phi));
+                if (src.startsWith("-")) {
+                    builder.append("  movl ").append(src).append(", %r9d\n");
+                    builder.append("  movl %r9d, ").append(dest).append("\n");
+                } else {
+                    builder.append("  movl ").append(src).append(", ").append(dest).append("\n");
+                }
+            }
             case Block _, ProjNode _, StartNode _ -> {
                 // do nothing, skip line break
                 return;
             }
             case BranchNode branch -> {
-                String condition = getPhysicalRegister(registers.get(predecessorSkipProj(branch, 0)));
-                String trueLabel = ".L" + labelCounter++;
-                String falseLabel = ".L" + labelCounter++;
-                
+                String condition = getPhysicalRegister(registers.get(branch.condition()));
+                String trueLabel = ".L" + branch.trueBlock().label();
+                String falseLabel = ".L" + branch.falseBlock().label();
                 builder.append("\n");
                 builder.append("  movl ").append(condition).append(", %eax\n");
                 builder.append("  testl %eax, %eax\n");
                 builder.append("  jz ").append(falseLabel).append("\n");
                 builder.append("  jmp ").append(trueLabel).append("\n");
-                
-                // Add labels for the blocks
-                builder.append(trueLabel).append(":\n");
-                builder.append(falseLabel).append(":\n");
             }
             case JumpNode jump -> {
-                String targetLabel = ".L" + labelCounter++;
+                String targetLabel = ".L" + jump.to().label();
                 builder.append("\n");
                 builder.append("  jmp ").append(targetLabel).append("\n");
-                builder.append(targetLabel).append(":\n");
             }
             case UndefNode undef -> {
                 return;
             }
-            case ShlNode shl -> {
-                String left = getPhysicalRegister(registers.get(predecessorSkipProj(shl, BinaryOperationNode.LEFT)));
-                String right = getPhysicalRegister(registers.get(predecessorSkipProj(shl, BinaryOperationNode.RIGHT)));
-                String dest = getPhysicalRegister(registers.get(shl));
-                builder.append("\n");
-                builder.append("  movl ").append(left).append(", %eax\n");
-                builder.append("  movl ").append(right).append(", %ecx\n");
-                builder.append("  shll %cl, %eax\n");
-                builder.append("  movl %eax, ").append(dest).append("\n");
-            }
-            case ShrNode shr -> {
-                String left = getPhysicalRegister(registers.get(predecessorSkipProj(shr, BinaryOperationNode.LEFT)));
-                String right = getPhysicalRegister(registers.get(predecessorSkipProj(shr, BinaryOperationNode.RIGHT)));
-                String dest = getPhysicalRegister(registers.get(shr));
-                builder.append("\n");
-                builder.append("  movl ").append(left).append(", %eax\n");
-                builder.append("  movl ").append(right).append(", %ecx\n");
-                builder.append("  sarl %cl, %eax\n");
-                builder.append("  movl %eax, ").append(dest).append("\n");
-            }
-            case LtNode lt -> {
-                String left = getPhysicalRegister(registers.get(predecessorSkipProj(lt, BinaryOperationNode.LEFT)));
-                String right = getPhysicalRegister(registers.get(predecessorSkipProj(lt, BinaryOperationNode.RIGHT)));
-                String dest = getPhysicalRegister(registers.get(lt));
-                builder.append("\n");
-                builder.append("  movl ").append(left).append(", %eax\n");
-                builder.append("  cmpl ").append(right).append(", %eax\n");
-                builder.append("  setl %al\n");
-                builder.append("  movzbl %al, %eax\n");
-                builder.append("  movl %eax, ").append(dest).append("\n");
-            }
-            case LeNode le -> {
-                String left = getPhysicalRegister(registers.get(predecessorSkipProj(le, BinaryOperationNode.LEFT)));
-                String right = getPhysicalRegister(registers.get(predecessorSkipProj(le, BinaryOperationNode.RIGHT)));
-                String dest = getPhysicalRegister(registers.get(le));
-                builder.append("\n");
-                builder.append("  movl ").append(left).append(", %eax\n");
-                builder.append("  cmpl ").append(right).append(", %eax\n");
-                builder.append("  setle %al\n");
-                builder.append("  movzbl %al, %eax\n");
-                builder.append("  movl %eax, ").append(dest).append("\n");
-            }
-            case GtNode gt -> {
-                String left = getPhysicalRegister(registers.get(predecessorSkipProj(gt, BinaryOperationNode.LEFT)));
-                String right = getPhysicalRegister(registers.get(predecessorSkipProj(gt, BinaryOperationNode.RIGHT)));
-                String dest = getPhysicalRegister(registers.get(gt));
-                builder.append("\n");
-                builder.append("  movl ").append(left).append(", %eax\n");
-                builder.append("  cmpl ").append(right).append(", %eax\n");
-                builder.append("  setg %al\n");
-                builder.append("  movzbl %al, %eax\n");
-                builder.append("  movl %eax, ").append(dest).append("\n");
-            }
-            case GeNode ge -> {
-                String left = getPhysicalRegister(registers.get(predecessorSkipProj(ge, BinaryOperationNode.LEFT)));
-                String right = getPhysicalRegister(registers.get(predecessorSkipProj(ge, BinaryOperationNode.RIGHT)));
-                String dest = getPhysicalRegister(registers.get(ge));
-                builder.append("\n");
-                builder.append("  movl ").append(left).append(", %eax\n");
-                builder.append("  cmpl ").append(right).append(", %eax\n");
-                builder.append("  setge %al\n");
-                builder.append("  movzbl %al, %eax\n");
-                builder.append("  movl %eax, ").append(dest).append("\n");
-            }
-            case EqNode eq -> {
-                String left = getPhysicalRegister(registers.get(predecessorSkipProj(eq, BinaryOperationNode.LEFT)));
-                String right = getPhysicalRegister(registers.get(predecessorSkipProj(eq, BinaryOperationNode.RIGHT)));
-                String dest = getPhysicalRegister(registers.get(eq));
-                builder.append("\n");
-                builder.append("  movl ").append(left).append(", %eax\n");
-                builder.append("  cmpl ").append(right).append(", %eax\n");
-                builder.append("  sete %al\n");
-                builder.append("  movzbl %al, %eax\n");
-                builder.append("  movl %eax, ").append(dest).append("\n");
-            }
-            case NeNode ne -> {
-                String left = getPhysicalRegister(registers.get(predecessorSkipProj(ne, BinaryOperationNode.LEFT)));
-                String right = getPhysicalRegister(registers.get(predecessorSkipProj(ne, BinaryOperationNode.RIGHT)));
-                String dest = getPhysicalRegister(registers.get(ne));
-                builder.append("\n");
-                builder.append("  movl ").append(left).append(", %eax\n");
-                builder.append("  cmpl ").append(right).append(", %eax\n");
-                builder.append("  setne %al\n");
-                builder.append("  movzbl %al, %eax\n");
-                builder.append("  movl %eax, ").append(dest).append("\n");
-            }
-            case BitwiseAndNode and -> {
-                String left = getPhysicalRegister(registers.get(predecessorSkipProj(and, BinaryOperationNode.LEFT)));
-                String right = getPhysicalRegister(registers.get(predecessorSkipProj(and, BinaryOperationNode.RIGHT)));
-                String dest = getPhysicalRegister(registers.get(and));
-                builder.append("\n");
-                builder.append("  movl ").append(left).append(", %eax\n");
-                builder.append("  andl ").append(right).append(", %eax\n");
-                builder.append("  movl %eax, ").append(dest).append("\n");
-            }
-            case BitwiseXorNode xor -> {
-                String left = getPhysicalRegister(registers.get(predecessorSkipProj(xor, BinaryOperationNode.LEFT)));
-                String right = getPhysicalRegister(registers.get(predecessorSkipProj(xor, BinaryOperationNode.RIGHT)));
-                String dest = getPhysicalRegister(registers.get(xor));
-                builder.append("\n");
-                builder.append("  movl ").append(left).append(", %eax\n");
-                builder.append("  xorl ").append(right).append(", %eax\n");
-                builder.append("  movl %eax, ").append(dest).append("\n");
-            }
-            case BitwiseOrNode or -> {
-                String left = getPhysicalRegister(registers.get(predecessorSkipProj(or, BinaryOperationNode.LEFT)));
-                String right = getPhysicalRegister(registers.get(predecessorSkipProj(or, BinaryOperationNode.RIGHT)));
-                String dest = getPhysicalRegister(registers.get(or));
-                builder.append("\n");
-                builder.append("  movl ").append(left).append(", %eax\n");
-                builder.append("  orl ").append(right).append(", %eax\n");
-                builder.append("  movl %eax, ").append(dest).append("\n");
-            }
-            // case LogicalAndNode and -> {
-            //     generateLogical(builder, getPhysicalRegister(registers.get(predecessorSkipProj(and, BinaryOperationNode.LEFT))), getPhysicalRegister(registers.get(predecessorSkipProj(and, BinaryOperationNode.RIGHT))), getPhysicalRegister(registers.get(and)), "jz", ".Lend");
-            // }
-            // case LogicalOrNode or -> {
-            //     generateLogical(builder, getPhysicalRegister(registers.get(predecessorSkipProj(or, BinaryOperationNode.LEFT))), getPhysicalRegister(registers.get(predecessorSkipProj(or, BinaryOperationNode.RIGHT))), getPhysicalRegister(registers.get(or)), "jnz", ".Lend");
-            // }
+            case ShlNode shl -> shift(builder, registers, shl, "shll");
+            case ShrNode shr -> shift(builder, registers, shr, "sarl");
+            case LtNode lt -> compare(builder, registers, lt, "setl");
+            case LeNode le -> compare(builder, registers, le, "setle");
+            case GtNode gt -> compare(builder, registers, gt, "setg");
+            case GeNode ge -> compare(builder, registers, ge, "setge");
+            case EqNode eq -> compare(builder, registers, eq, "sete");
+            case NeNode ne -> compare(builder, registers, ne, "setne");
+            case BitwiseAndNode and -> bitwise(builder, registers, and, "andl");
+            case BitwiseXorNode xor -> bitwise(builder, registers, xor, "xorl");
+            case BitwiseOrNode or -> bitwise(builder, registers, or, "orl");
         }
-        builder.append("\n");
     }
 
     private static void binary(StringBuilder builder, Map<Node, Register> registers, BinaryOperationNode node, String opcode) {
@@ -323,12 +285,17 @@ public class CodeGenerator {
             builder.append("  movl ").append(right).append(", %r8d\n");
             right = "%r8d";
         }
+
         if (dest.startsWith("-")) {
-            builder.append("  movl ").append(left).append(", %r9d\n");
+            if (!left.equals("%r9d")) {
+                builder.append("  movl ").append(left).append(", %r9d\n");
+            }
             builder.append("  ").append(opcode).append(" ").append(right).append(", %r9d\n");
             builder.append("  movl %r9d, ").append(dest).append("\n");
         } else {
-            builder.append("  movl ").append(left).append(", ").append(dest).append("\n");
+            if (!left.equals(dest)) {
+                builder.append("  movl ").append(left).append(", ").append(dest).append("\n");
+            }
             builder.append("  ").append(opcode).append(" ").append(right).append(", ").append(dest).append("\n");
         }
     }
@@ -352,40 +319,92 @@ public class CodeGenerator {
         builder.append("  movl ").append(resultReg).append(", ").append(dest).append("\n");
     }
 
-    private void generateLogical(StringBuilder builder, String left, String right, String dest, String jumpIf, String jumpTo) {
-        String uniqueId = String.format("_%d", labelCounter++);
-        String falseLabel = ".Lfalse" + uniqueId;
-        String trueLabel = ".Ltrue" + uniqueId;
-        String endLabel = ".Lend" + uniqueId;
-
+    private static void compare(StringBuilder builder, Map<Node, Register> registers, BinaryOperationNode node, String setInstruction) {
+        String left = getPhysicalRegister(registers.get(predecessorSkipProj(node, BinaryOperationNode.LEFT)));
+        String right = getPhysicalRegister(registers.get(predecessorSkipProj(node, BinaryOperationNode.RIGHT)));
+        String dest = getPhysicalRegister(registers.get(node));
         builder.append("\n");
-        builder.append("  movl ").append(left).append(", %eax\n");
-        builder.append("  testl %eax, %eax\n");
-        if (jumpIf.equals("jz")) {
-            // Logical AND: if first is false, result is false
-            builder.append("  ").append(jumpIf).append(" ").append(falseLabel).append("\n");
-            builder.append("  movl ").append(right).append(", %eax\n");
-            builder.append("  testl %eax, %eax\n");
-            builder.append("  ").append(jumpIf).append(" ").append(falseLabel).append("\n");
-            builder.append("  movl $1, %eax\n");
-            builder.append("  jmp ").append(endLabel).append("\n");
-            builder.append(falseLabel).append(":\n");
-            builder.append("  movl $0, %eax\n");
-        } else if (jumpIf.equals("jnz")) {
-            // Logical OR: if first is true, result is true
-            builder.append("  ").append(jumpIf).append(" ").append(trueLabel).append("\n");
-            // Only evaluate right operand if left is false
-            builder.append("  movl ").append(right).append(", %eax\n");
-            builder.append("  testl %eax, %eax\n");
-            builder.append("  ").append(jumpIf).append(" ").append(trueLabel).append("\n");
-            builder.append("  movl $0, %eax\n");
-            builder.append("  jmp ").append(endLabel).append("\n");
-            builder.append(trueLabel).append(":\n");
-            builder.append("  movl $1, %eax\n");
-        } else {
-            throw new IllegalArgumentException("Invalid jumpIf: " + jumpIf);
+
+
+        if (right.startsWith("-")) {
+            builder.append("  movl ").append(right).append(", %ecx\n");
+            right = "%ecx";
         }
-        builder.append(endLabel).append(":\n");
+
+        builder.append("  movl ").append(left).append(", %eax\n");
+        builder.append("  cmpl ").append(right).append(", %eax\n");
+        builder.append("  ").append(setInstruction).append(" %al\n");
+        builder.append("  movzbl %al, %eax\n");
         builder.append("  movl %eax, ").append(dest).append("\n");
     }
+
+    private static void bitwise(StringBuilder builder, Map<Node, Register> registers, BinaryOperationNode node, String opcode) {
+        String left = getPhysicalRegister(registers.get(predecessorSkipProj(node, BinaryOperationNode.LEFT)));
+        String right = getPhysicalRegister(registers.get(predecessorSkipProj(node, BinaryOperationNode.RIGHT)));
+        String dest = getPhysicalRegister(registers.get(node));
+        builder.append("\n");
+
+        if (left.startsWith("-")) {
+            builder.append("  movl ").append(left).append(", %r9d\n");
+            left = "%r9d";
+        }
+        if (right.startsWith("-")) {
+            builder.append("  movl ").append(right).append(", %r8d\n");
+            right = "%r8d";
+        }
+
+        if (dest.startsWith("-")) {
+            builder.append("  movl ").append(left).append(", %r9d\n");
+            builder.append("  ").append(opcode).append(" ").append(right).append(", %r9d\n");
+            builder.append("  movl %r9d, ").append(dest).append("\n");
+        } else {
+            builder.append("  movl ").append(left).append(", ").append(dest).append("\n");
+            builder.append("  ").append(opcode).append(" ").append(right).append(", ").append(dest).append("\n");
+        }
+    }
+
+    private static void shift(StringBuilder builder, Map<Node, Register> registers, BinaryOperationNode node, String opcode) {
+        String left = getPhysicalRegister(registers.get(predecessorSkipProj(node, BinaryOperationNode.LEFT)));
+        String right = getPhysicalRegister(registers.get(predecessorSkipProj(node, BinaryOperationNode.RIGHT)));
+        String dest = getPhysicalRegister(registers.get(node));
+        builder.append("\n");
+
+        if (left.startsWith("-")) {
+            builder.append("  movl ").append(left).append(", %r9d\n");
+            left = "%r9d";
+        }
+        if (right.startsWith("-")) {
+            builder.append("  movl ").append(right).append(", %ecx\n");
+            right = "%ecx";
+        }
+
+        if (dest.startsWith("-")) {
+            builder.append("  movl ").append(left).append(", %r9d\n");
+            builder.append("  ").append(opcode).append(" %cl, %r9d\n");
+            builder.append("  movl %r9d, ").append(dest).append("\n");
+        } else {
+            builder.append("  movl ").append(left).append(", ").append(dest).append("\n");
+            builder.append("  ").append(opcode).append(" %cl, ").append(dest).append("\n");
+        }
+    }
+
+    private static void unary(StringBuilder builder, Map<Node, Register> registers, Node node, String opcode) {
+        String operand = getPhysicalRegister(registers.get(predecessorSkipProj(node, 0)));
+        String dest = getPhysicalRegister(registers.get(node));
+        builder.append("\n");
+
+        if (operand.startsWith("-")) {
+            builder.append("  movl ").append(operand).append(", %r9d\n");
+            operand = "%r9d";
+        }
+        if (dest.startsWith("-")) {
+            builder.append("  movl ").append(operand).append(", %r9d\n");
+            builder.append("  ").append(opcode).append(" %r9d\n");
+            builder.append("  movl %r9d, ").append(dest).append("\n");
+        } else {
+            builder.append("  movl ").append(operand).append(", ").append(dest).append("\n");
+            builder.append("  ").append(opcode).append(" ").append(dest).append("\n");
+        }
+    }
+
 }
