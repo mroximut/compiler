@@ -475,18 +475,20 @@ public class SsaTranslation {
             
             // Create branch node
             data.constructor.newBranch(data.currentBlock(), condition, trueBlock, falseBlock);
+            //System.out.println("Creating branch from" + data.currentBlock().label() + " to " + trueBlock.label() + " and " + falseBlock.label());
             
             // Process true expression
             data.constructor.setCurrentBlock(trueBlock);
             data.constructor.sealBlock(trueBlock);
             Node trueValue = ternaryTree.trueExpr().accept(this, data).orElseThrow();
-            data.constructor.newJump(trueBlock, mergeBlock);
+            data.constructor.newJump(data.currentBlock(), mergeBlock);
             
             // Process false expression
             data.constructor.setCurrentBlock(falseBlock);
             data.constructor.sealBlock(falseBlock);
             Node falseValue = ternaryTree.falseExpr().accept(this, data).orElseThrow();
-            data.constructor.newJump(falseBlock, mergeBlock);
+            data.constructor.newJump(data.currentBlock(), mergeBlock);
+            //System.out.println("Creating jump from" + falseBlock.label());
             
             // Continue with merge block
             data.constructor.setCurrentBlock(mergeBlock);
