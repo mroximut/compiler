@@ -285,9 +285,14 @@ public class CodeGenerator {
             builder.append("  movl ").append(right).append(", %r8d\n");
             right = "%r8d";
         }
-
-        builder.append("  ").append(opcode).append(" ").append(right).append(", ").append(left).append("\n");
-        builder.append("  movl ").append(left).append(", ").append(dest).append("\n");
+        if (dest.startsWith("-")) {
+            builder.append("  movl ").append(left).append(", %r9d\n");
+            builder.append("  ").append(opcode).append(" ").append(right).append(", %r9d\n");
+            builder.append("  movl %r9d, ").append(dest).append("\n");
+        } else {
+            builder.append("  movl ").append(left).append(", ").append(dest).append("\n");
+            builder.append("  ").append(opcode).append(" ").append(right).append(", ").append(dest).append("\n");
+        }
         
     }
 
@@ -336,17 +341,12 @@ public class CodeGenerator {
         String dest = getPhysicalRegister(registers.get(node));
         builder.append("\n");
 
-        if (left.startsWith("-")) {
-            builder.append("  movl ").append(left).append(", %r9d\n");
-            left = "%r9d";
-        }
-
         builder.append("  movl ").append(right).append(", %ecx\n");
         
         builder.append("  movl ").append(left).append(", %r9d\n");
             
-        builder.append("  ").append(opcode).append(" %cl, ").append(left).append("\n");
-        builder.append("  movl ").append(left).append(", ").append(dest).append("\n");
+        builder.append("  ").append(opcode).append(" %cl, ").append("%r9d").append("\n");
+        builder.append("  movl ").append("%r9d").append(", ").append(dest).append("\n");
  
     }
 
@@ -355,13 +355,10 @@ public class CodeGenerator {
         String dest = getPhysicalRegister(registers.get(node));
         builder.append("\n");
 
-        if (operand.startsWith("-")) {
-            builder.append("  movl ").append(operand).append(", %r9d\n");
-            operand = "%r9d";
-        }
+        builder.append("  movl ").append(operand).append(", %r9d\n");
  
-        builder.append("  ").append(opcode).append(" ").append(operand).append("\n");
-        builder.append("  movl ").append(operand).append(", ").append(dest).append("\n");
+        builder.append("  ").append(opcode).append(" ").append("%r9d").append("\n");
+        builder.append("  movl ").append("%r9d").append(", ").append(dest).append("\n");
     }
 
 }
