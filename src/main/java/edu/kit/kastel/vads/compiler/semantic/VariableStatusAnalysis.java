@@ -43,7 +43,6 @@ class VariableStatusAnalysis implements NoOpVisitor<Namespace<VariableStatusAnal
 
     private static void checkInitialized(NameTree name, @Nullable VariableStatus status) {
         if (status == null || status == VariableStatus.DECLARED) {
-            System.out.println(name.toString() + " " + status.toString());
             throw new SemanticException("Variable " + name + " must be initialized before use");
         }
     }
@@ -119,7 +118,7 @@ class VariableStatusAnalysis implements NoOpVisitor<Namespace<VariableStatusAnal
     @Override
     public Unit visit(IfTree ifTree, Namespace<VariableStatus> data) {
         ifTree.condition().accept(this, data);
-        
+
         Namespace<VariableStatus> thenScope = new Namespace<>(data);
         ifTree.thenBranch().accept(this, thenScope);
         if (ifTree.elseBranch() != null) {
