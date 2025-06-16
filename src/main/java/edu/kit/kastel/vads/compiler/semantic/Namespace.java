@@ -6,6 +6,7 @@ import org.jspecify.annotations.Nullable;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.BinaryOperator;
 
 public class Namespace<T> {
@@ -37,15 +38,27 @@ public class Namespace<T> {
         return value;
     }
 
-    public void setAllDefined(NameTree name, T value) {
+    public void setAllDefined(T value) {
         this.allDefined = true;
-        this.put(name, value, (_, replacement) -> replacement);
+        for (var entry : this.content.entrySet()) {
+            this.content.merge(entry.getKey(), value, (_, replacement) -> replacement);
+        }
         if (parent != null) {
-            parent.setAllDefined(name, value);
+            parent.setAllDefined(value);
         }
     }
 
     public boolean isAllDefined() {
         return allDefined;
+    }
+
+    public boolean isOnlyInitializedHere(Name name) {
+        return (parent != null) &&
+               (parent.content.get(name) == VariableStatusAnalysis.VariableStatus.DECLARED) &&
+               (this.content.get(name) == VariableStatusAnalysis.VariableStatus.INITIALIZED);
+    }
+
+    public Set<Name> getValues() {
+        return this.content.keySet();
     }
 }
