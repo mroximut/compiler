@@ -82,6 +82,24 @@ public class TypeCheckingAnalysis implements Visitor<Namespace<Type>, Type> {
     }
 
     @Override
+    public Type visit(TernaryTree ternaryTree, Namespace<Type> data) {
+        Type conditionType = ternaryTree.condition().accept(this, data);
+        if (conditionType != BasicType.BOOL) {
+            throw new SemanticException("Ternary condition must be boolean");
+        }
+
+        Type thenType = ternaryTree.trueExpr().accept(this, data);
+        Type elseType = ternaryTree.falseExpr().accept(this, data);
+
+        if (thenType != elseType) {
+            throw new SemanticException("Ternary branches must have the same type");
+        }
+
+        return thenType;
+    }
+
+    
+    @Override
     public Type visit(IdentExpressionTree identExpressionTree, Namespace<Type> data) {
         Type type = data.get(identExpressionTree.name());
         if (type == null) {
@@ -92,6 +110,10 @@ public class TypeCheckingAnalysis implements Visitor<Namespace<Type>, Type> {
 
     @Override
     public Type visit(DeclarationTree declarationTree, Namespace<Type> data) {
+        if (data.isAllDefined()) {
+            return BasicType.INT;
+        }
+
         Type declaredType = declarationTree.type().accept(this, data);
         
         // Check if variable is already declared in the current scope only
@@ -114,19 +136,11 @@ public class TypeCheckingAnalysis implements Visitor<Namespace<Type>, Type> {
     }
 
     @Override
-    public Type visit(ReturnTree returnTree, Namespace<Type> data) {
-        if (returnTree.expression() != null) {
-            Type returnType = returnTree.expression().accept(this, data);
-            if (returnType != BasicType.INT) {
-                throw new SemanticException("Return statement must return an integer");
-            }
-            return returnType;
-        }
-        return BasicType.INT;
-    }
-
-    @Override
     public Type visit(AssignmentTree assignmentTree, Namespace<Type> data) {
+        if (data.isAllDefined()) {
+            return BasicType.INT;
+        }
+
         Type lValueType = assignmentTree.lValue().accept(this, data);
         Type exprType = assignmentTree.expression().accept(this, data);
         if (lValueType != exprType) {
@@ -137,6 +151,8 @@ public class TypeCheckingAnalysis implements Visitor<Namespace<Type>, Type> {
 
     @Override
     public Type visit(BlockTree blockTree, Namespace<Type> data) {
+        data.setAllDefined(false);
+
         // Create a new scope that inherits from the parent scope
         Namespace<Type> blockScope = new Namespace<>(data);
         
@@ -197,24 +213,9 @@ public class TypeCheckingAnalysis implements Visitor<Namespace<Type>, Type> {
     }
 
     @Override
-    public Type visit(TernaryTree ternaryTree, Namespace<Type> data) {
-        Type conditionType = ternaryTree.condition().accept(this, data);
-        if (conditionType != BasicType.BOOL) {
-            throw new SemanticException("Ternary condition must be boolean");
-        }
-
-        Type thenType = ternaryTree.trueExpr().accept(this, data);
-        Type elseType = ternaryTree.falseExpr().accept(this, data);
-
-        if (thenType != elseType) {
-            throw new SemanticException("Ternary branches must have the same type");
-        }
-
-        return thenType;
-    }
-
-    @Override
     public Type visit(WhileTree whileTree, Namespace<Type> data) {
+        data.setAllDefined(false);
+
         Type conditionType = whileTree.condition().accept(this, data);
         if (conditionType != BasicType.BOOL) {
             throw new SemanticException("While condition must be boolean");
@@ -229,6 +230,8 @@ public class TypeCheckingAnalysis implements Visitor<Namespace<Type>, Type> {
 
     @Override
     public Type visit(IfTree ifTree, Namespace<Type> data) {
+        data.setAllDefined(false);
+
         Type conditionType = ifTree.condition().accept(this, data);
         if (conditionType != BasicType.BOOL) {
             throw new SemanticException("If condition must be boolean");
@@ -248,36 +251,50 @@ public class TypeCheckingAnalysis implements Visitor<Namespace<Type>, Type> {
 
     @Override
     public Type visit(ForTree forTree, Namespace<Type> data) {
-        // Create a new scope that inherits from the parent scope
-        Namespace<Type> forScope = new Namespace<>(data);
+        data.setAllDefined(false);
+
         
         // Handle initialization in the for loop's scope
-        forTree.initializer().accept(this, forScope);
+        forTree.initializer().accept(this, data);
 
         // Check condition in the for loop's scope
-        Type conditionType = forTree.condition().accept(this, forScope);
+        Type conditionType = forTree.condition().accept(this, data);
         if (conditionType != BasicType.BOOL) {
             throw new SemanticException("For condition must be boolean");
         }
+
+        // Create a new scope that inherits from the parent scope
+        Namespace<Type> forScope = new Namespace<>(data);
 
         // Handle body in the for loop's scope
         forTree.body().accept(this, forScope);
 
         // Handle increment in the for loop's scope
-       
         forTree.increment().accept(this, forScope);
-        
 
         return BasicType.INT;
     }
 
     @Override
     public Type visit(ContinueTree continueTree, Namespace<Type> data) {
+        data.setAllDefined(true);
         return BasicType.INT;
     }
 
     @Override
     public Type visit(BreakTree breakTree, Namespace<Type> data) {
+        data.setAllDefined(true);
         return BasicType.INT;
+    }
+
+    @Override
+    public Type visit(ReturnTree returnTree, Namespace<Type> data) {
+            
+        Type returnType = returnTree.expression().accept(this, data);
+        if (returnType != BasicType.INT) {
+            throw new SemanticException("Return statement must return an integer");
+        }
+        data.setAllDefined(true);
+        return returnType;
     }
 } 

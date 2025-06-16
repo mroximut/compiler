@@ -12,6 +12,7 @@ public class Namespace<T> {
 
     private final Map<Name, T> content;
     private final Namespace<T> parent;
+    private boolean allDefined = false;
 
     public Namespace() {
         this.content = new HashMap<>();
@@ -33,5 +34,13 @@ public class Namespace<T> {
             return parent.get(name);
         }
         return value;
+    }
+
+    public void setAllDefined(boolean allDefined) {
+        this.allDefined = allDefined;
+    }
+
+    public boolean isAllDefined() {
+        return allDefined;
     }
 }
