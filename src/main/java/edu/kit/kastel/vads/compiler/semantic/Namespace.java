@@ -49,9 +49,9 @@ public class Namespace<T> {
         for (var entry : this.content.entrySet()) {
             this.content.merge(entry.getKey(), value, (_, replacement) -> replacement);
         }
-        if (parent != null) {
-            parent.setAllDefined(value);
-        }
+        // if (parent != null) {
+        //     parent.setAllDefined(value);
+        // }
     }
 
     public boolean isAllDefined() {
