@@ -11,9 +11,16 @@ import java.util.function.BinaryOperator;
 public class Namespace<T> {
 
     private final Map<Name, T> content;
+    private final Namespace<T> parent;
 
     public Namespace() {
         this.content = new HashMap<>();
+        this.parent = null;
+    }
+
+    public Namespace(Namespace<T> parent) {
+        this.content = new HashMap<>();
+        this.parent = parent;
     }
 
     public void put(NameTree name, T value, BinaryOperator<T> merger) {
@@ -21,6 +28,10 @@ public class Namespace<T> {
     }
 
     public @Nullable T get(NameTree name) {
-        return this.content.get(name.name());
+        T value = this.content.get(name.name());
+        if (value == null && parent != null) {
+            return parent.get(name);
+        }
+        return value;
     }
 }
