@@ -7,50 +7,43 @@ import edu.kit.kastel.vads.compiler.parser.ast.ReturnTree;
 import edu.kit.kastel.vads.compiler.parser.ast.StatementTree;
 import edu.kit.kastel.vads.compiler.parser.visitor.NoOpVisitor;
 import edu.kit.kastel.vads.compiler.parser.visitor.Unit;
-import java.util.ArrayList;
 import java.util.List;
 
-class ReturnAnalysis implements NoOpVisitor<ReturnAnalysis.ReturnState> {
-
-    static class ReturnState {
-        List<StatementTree> statements = new ArrayList<>();
-    }
+class ReturnAnalysis implements NoOpVisitor<List<StatementTree>> {
 
     @Override
-    public Unit visit(ReturnTree returnTree, ReturnState data) {
-        data.statements.add(returnTree);
+    public Unit visit(ReturnTree returnTree, List<StatementTree> data) {
+        data.add(returnTree);
         return NoOpVisitor.super.visit(returnTree, data);
     }
 
     @Override
-    public Unit visit(BlockTree blockTree, ReturnState data) {
-        List<StatementTree> returns = blockTree.statements().stream()
-          .filter(s -> data.statements.contains(s))
-          .toList();
-
-        if (!returns.isEmpty()) {
-            data.statements.add(blockTree);
+    public Unit visit(BlockTree blockTree, List<StatementTree> data) {
+        for (StatementTree statement : blockTree.statements()) {
+            if (data.contains(statement)) {
+                data.add(blockTree);
+                break;
+            }
         }
-
         return NoOpVisitor.super.visit(blockTree, data);
     }
 
     @Override
-    public Unit visit(IfTree ifTree, ReturnState data) {
-        if (data.statements.contains(ifTree.thenBranch())) {
-            if (ifTree.elseBranch() != null && data.statements.contains(ifTree.elseBranch())) {
-                data.statements.add(ifTree);
+    public Unit visit(IfTree ifTree, List<StatementTree> data) {
+        if (data.contains(ifTree.thenBranch())) {
+            if (ifTree.elseBranch() != null && data.contains(ifTree.elseBranch())) {
+                data.add(ifTree);
             }
         }
         return NoOpVisitor.super.visit(ifTree, data);
     }
 
     @Override
-    public Unit visit(FunctionTree functionTree, ReturnState data) {
-        if (!data.statements.contains(functionTree.body())) {
+    public Unit visit(FunctionTree functionTree, List<StatementTree> data) {
+        if (!data.contains(functionTree.body())) {
             throw new SemanticException("function " + functionTree.name() + " does not return");
         }
-        data.statements.clear();
+        data.clear();
         return NoOpVisitor.super.visit(functionTree, data);
     }
 }

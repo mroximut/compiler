@@ -74,7 +74,7 @@ public class Parser {
     private BlockTree parseBlock() {
         Separator bodyOpen = this.tokenSource.expectSeparator(SeparatorType.BRACE_OPEN);
         List<StatementTree> statements = new ArrayList<>();
-        while (!(this.tokenSource.peek() instanceof Separator sep && sep.type() == SeparatorType.BRACE_CLOSE)) {
+        while (!(this.tokenSource.peek().isSeparator(SeparatorType.BRACE_CLOSE))) {
             statements.add(parseStatement());
         }
         Separator bodyClose = this.tokenSource.expectSeparator(SeparatorType.BRACE_CLOSE);
@@ -101,6 +101,8 @@ public class Parser {
         } else if (this.tokenSource.peek().isKeyword(KeywordType.RETURN)) {
             statement = parseReturn();
             this.tokenSource.expectSeparator(SeparatorType.SEMICOLON);
+        } else if (this.tokenSource.peek().isSeparator(SeparatorType.BRACE_OPEN)) {
+            statement = parseBlock();
         } else {
             statement = parseSimple();
             this.tokenSource.expectSeparator(SeparatorType.SEMICOLON);
@@ -421,7 +423,7 @@ public class Parser {
         
         // Parse increment
         StatementTree increment;
-        if (this.tokenSource.peek().isSeparator(SeparatorType.SEMICOLON)) {
+        if (this.tokenSource.peek().isSeparator(SeparatorType.PAREN_CLOSE)) {
             increment = new NoOpTree(forKeyword.span());
         } else if (this.tokenSource.peek().isKeyword(KeywordType.INT) || this.tokenSource.peek().isKeyword(KeywordType.BOOL)) {
             increment = parseDeclaration();
