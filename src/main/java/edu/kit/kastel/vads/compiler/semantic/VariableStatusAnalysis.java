@@ -43,6 +43,7 @@ class VariableStatusAnalysis implements NoOpVisitor<Namespace<VariableStatusAnal
 
     private static void checkInitialized(NameTree name, @Nullable VariableStatus status) {
         if (status == null || status == VariableStatus.DECLARED) {
+            System.out.println(name.toString() + " " + status.toString());
             throw new SemanticException("Variable " + name + " must be initialized before use");
         }
     }
@@ -117,10 +118,14 @@ class VariableStatusAnalysis implements NoOpVisitor<Namespace<VariableStatusAnal
 
     @Override
     public Unit visit(IfTree ifTree, Namespace<VariableStatus> data) {
-        Namespace<VariableStatus> ifScope = new Namespace<>(data);
-        ifTree.condition().accept(this, ifScope);
-        ifTree.thenBranch().accept(this, ifScope);
-        ifTree.elseBranch().accept(this, ifScope);
+        ifTree.condition().accept(this, data);
+        
+        Namespace<VariableStatus> thenScope = new Namespace<>(data);
+        ifTree.thenBranch().accept(this, thenScope);
+        if (ifTree.elseBranch() != null) {
+            Namespace<VariableStatus> elseScope = new Namespace<>(data);
+            ifTree.elseBranch().accept(this, elseScope);
+        }
         return Unit.INSTANCE;
     }
 
@@ -144,7 +149,7 @@ class VariableStatusAnalysis implements NoOpVisitor<Namespace<VariableStatusAnal
     @Override
     public Unit visit(ProgramTree programTree, Namespace<VariableStatus> data) {
         for (var function : programTree.topLevelTrees()) {
-            function.body().accept(this, data);
+            function.accept(this, data);
         }
         return Unit.INSTANCE;
     }
@@ -174,8 +179,10 @@ class VariableStatusAnalysis implements NoOpVisitor<Namespace<VariableStatusAnal
     @Override
     public Unit visit(ForTree forTree, Namespace<VariableStatus> data) {
         Namespace<VariableStatus> forScope = new Namespace<>(data);
+        forTree.initializer().accept(this, forScope);
         forTree.condition().accept(this, forScope);
         forTree.body().accept(this, forScope);
+        forTree.increment().accept(this, forScope);
         return Unit.INSTANCE;
     }
 
