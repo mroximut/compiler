@@ -22,6 +22,7 @@ public class Namespace<T> {
     public Namespace(Namespace<T> parent) {
         this.content = new HashMap<>();
         this.parent = parent;
+        this.allDefined = parent.isAllDefined();
     }
 
     public void put(NameTree name, T value, BinaryOperator<T> merger) {
@@ -36,8 +37,12 @@ public class Namespace<T> {
         return value;
     }
 
-    public void setAllDefined(boolean allDefined) {
-        this.allDefined = allDefined;
+    public void setAllDefined(NameTree name, T value) {
+        this.allDefined = true;
+        this.put(name, value, (_, replacement) -> replacement);
+        if (parent != null) {
+            parent.setAllDefined(name, value);
+        }
     }
 
     public boolean isAllDefined() {

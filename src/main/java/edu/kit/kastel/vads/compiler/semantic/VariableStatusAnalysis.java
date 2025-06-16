@@ -16,6 +16,17 @@
 // /// - assigned before referenced
 // class VariableStatusAnalysis implements NoOpVisitor<Namespace<VariableStatusAnalysis.VariableStatus>> {
 
+
+//     enum VariableStatus {
+//         DECLARED,
+//         INITIALIZED;
+
+//         @Override
+//         public String toString() {
+//             return name().toLowerCase(Locale.ROOT);
+//         }
+//     }
+
 //     @Override
 //     public Unit visit(AssignmentTree assignmentTree, Namespace<VariableStatus> data) {
 //         assignmentTree.lValue().accept(this, data);
@@ -27,7 +38,7 @@
 //                 if (assignmentTree.operator().type() == Operator.OperatorType.ASSIGN) {
 //                     checkDeclared(name, status);
 //                 } else {
-//                     checkInitialized(name, status);
+//                     if (!data.isAllDefined()) checkInitialized(name, status);
 //                 }
 //                 if (status != VariableStatus.INITIALIZED) {
 //                     // only update when needed, reassignment is totally fine
@@ -94,15 +105,7 @@
 //         return Unit.INSTANCE;
 //     }
 
-//     enum VariableStatus {
-//         DECLARED,
-//         INITIALIZED;
 
-//         @Override
-//         public String toString() {
-//             return name().toLowerCase(Locale.ROOT);
-//         }
-//     }
 
 //     @Override
 //     public Unit visit(NoOpTree noOpTree, Namespace<VariableStatus> data) {
@@ -138,11 +141,7 @@
 //         return Unit.INSTANCE;
 //     }
 
-//     @Override
-//     public Unit visit(ReturnTree returnTree, Namespace<VariableStatus> data) {
-//         returnTree.expression().accept(this, data);
-//         return Unit.INSTANCE;
-//     }
+
 
 //     @Override
 //     public Unit visit(TypeTree typeTree, Namespace<VariableStatus> data) {
@@ -199,16 +198,6 @@
 //     }
 
 //     @Override
-//     public Unit visit(BreakTree breakTree, Namespace<VariableStatus> data) {
-//         return Unit.INSTANCE;
-//     }
-
-//     @Override
-//     public Unit visit(ContinueTree continueTree, Namespace<VariableStatus> data) {
-//         return Unit.INSTANCE;
-//     }
-
-//     @Override
 //     public Unit visit(BooleanLiteralTree booleanLiteralTree, Namespace<VariableStatus> data) {
 //         return Unit.INSTANCE;
 //     }
@@ -229,10 +218,30 @@
 //         return Unit.INSTANCE;
 //     }
 
+//     @Override
+//     public Unit visit(BreakTree breakTree, Namespace<VariableStatus> data) {
+//         data.setAllDefined(true);
+//         return Unit.INSTANCE;
+//     }
+
+//     @Override
+//     public Unit visit(ContinueTree continueTree, Namespace<VariableStatus> data) {
+//         data.setAllDefined(true);
+//         return Unit.INSTANCE;
+//     }
+
+//     @Override
+//     public Unit visit(ReturnTree returnTree, Namespace<VariableStatus> data) {
+//         returnTree.expression().accept(this, data);
+//         data.setAllDefined(true);
+//         return Unit.INSTANCE;
+//     }
+
 // }
 
 
 //// OLD VERSION
+
 package edu.kit.kastel.vads.compiler.semantic;
 
 import edu.kit.kastel.vads.compiler.lexer.Operator;

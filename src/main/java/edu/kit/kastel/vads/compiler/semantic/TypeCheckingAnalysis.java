@@ -110,9 +110,9 @@ public class TypeCheckingAnalysis implements Visitor<Namespace<Type>, Type> {
 
     @Override
     public Type visit(DeclarationTree declarationTree, Namespace<Type> data) {
-        if (data.isAllDefined()) {
-            return BasicType.INT;
-        }
+        // if (data.isAllDefined()) {
+        //     return BasicType.INT;
+        // }
 
         Type declaredType = declarationTree.type().accept(this, data);
         
@@ -137,9 +137,9 @@ public class TypeCheckingAnalysis implements Visitor<Namespace<Type>, Type> {
 
     @Override
     public Type visit(AssignmentTree assignmentTree, Namespace<Type> data) {
-        if (data.isAllDefined()) {
-            return BasicType.INT;
-        }
+        // if (data.isAllDefined()) {
+        //     return BasicType.INT;
+        // }
 
         Type lValueType = assignmentTree.lValue().accept(this, data);
         Type exprType = assignmentTree.expression().accept(this, data);
@@ -151,7 +151,7 @@ public class TypeCheckingAnalysis implements Visitor<Namespace<Type>, Type> {
 
     @Override
     public Type visit(BlockTree blockTree, Namespace<Type> data) {
-        data.setAllDefined(false);
+        //data.setAllDefined(false);
 
         // Create a new scope that inherits from the parent scope
         Namespace<Type> blockScope = new Namespace<>(data);
@@ -214,7 +214,7 @@ public class TypeCheckingAnalysis implements Visitor<Namespace<Type>, Type> {
 
     @Override
     public Type visit(WhileTree whileTree, Namespace<Type> data) {
-        data.setAllDefined(false);
+        //data.setAllDefined(false);
 
         Type conditionType = whileTree.condition().accept(this, data);
         if (conditionType != BasicType.BOOL) {
@@ -230,7 +230,7 @@ public class TypeCheckingAnalysis implements Visitor<Namespace<Type>, Type> {
 
     @Override
     public Type visit(IfTree ifTree, Namespace<Type> data) {
-        data.setAllDefined(false);
+        //data.setAllDefined(false);
 
         Type conditionType = ifTree.condition().accept(this, data);
         if (conditionType != BasicType.BOOL) {
@@ -251,7 +251,7 @@ public class TypeCheckingAnalysis implements Visitor<Namespace<Type>, Type> {
 
     @Override
     public Type visit(ForTree forTree, Namespace<Type> data) {
-        data.setAllDefined(false);
+        //data.setAllDefined(false);
 
         
         // Handle initialization in the for loop's scope
@@ -277,13 +277,13 @@ public class TypeCheckingAnalysis implements Visitor<Namespace<Type>, Type> {
 
     @Override
     public Type visit(ContinueTree continueTree, Namespace<Type> data) {
-        data.setAllDefined(true);
+        //data.setAllDefined(true);
         return BasicType.INT;
     }
 
     @Override
     public Type visit(BreakTree breakTree, Namespace<Type> data) {
-        data.setAllDefined(true);
+        //data.setAllDefined(true);
         return BasicType.INT;
     }
 
@@ -294,7 +294,7 @@ public class TypeCheckingAnalysis implements Visitor<Namespace<Type>, Type> {
         if (returnType != BasicType.INT) {
             throw new SemanticException("Return statement must return an integer");
         }
-        data.setAllDefined(true);
+        //data.setAllDefined(true);
         return returnType;
     }
 } 
