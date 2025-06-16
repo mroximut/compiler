@@ -117,9 +117,9 @@ public class TypeCheckingAnalysis implements Visitor<Namespace<Type>, Type> {
         Type declaredType = declarationTree.type().accept(this, data);
         
         // Check if variable is already declared in the current scope only
-        if (data.get(declarationTree.name()) != null) {
-            throw new SemanticException("Variable already declared in this scope: " + declarationTree.name().name());
-        }
+        // if (data.get(declarationTree.name()) != null) {
+        //     throw new SemanticException("Variable already declared in this scope: " + declarationTree.name().name());
+        // }
 
         // Add variable to current scope
         data.put(declarationTree.name(), declaredType, (_, replacement) -> replacement);
@@ -140,11 +140,19 @@ public class TypeCheckingAnalysis implements Visitor<Namespace<Type>, Type> {
         // if (data.isAllDefined()) {
         //     return BasicType.INT;
         // }
-
-        Type lValueType = assignmentTree.lValue().accept(this, data);
-        Type exprType = assignmentTree.expression().accept(this, data);
-        if (lValueType != exprType) {
-            throw new SemanticException("Type mismatch in assignment");
+        Type lValueType;
+        if (assignmentTree.operator().type() == OperatorType.ASSIGN) {
+            lValueType = assignmentTree.lValue().accept(this, data);
+            Type exprType = assignmentTree.expression().accept(this, data);
+            if (lValueType != exprType) {
+                throw new SemanticException("Type mismatch in assignment");
+            }
+        } else {
+            lValueType = assignmentTree.lValue().accept(this, data);
+            Type exprType = assignmentTree.expression().accept(this, data);
+            if (lValueType != BasicType.INT && exprType != BasicType.INT) {
+                throw new SemanticException("This assignment operator requires integer operands");
+            }
         }
         return lValueType;
     }

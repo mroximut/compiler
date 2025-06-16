@@ -135,11 +135,28 @@ class VariableStatusAnalysis implements NoOpVisitor<Namespace<VariableStatusAnal
         ifTree.condition().accept(this, data);
 
         Namespace<VariableStatus> thenScope = new Namespace<>(data);
-        ifTree.thenBranch().accept(this, thenScope);
+        if (ifTree.thenBranch() instanceof BlockTree blockTree) {
+            for (var statement : blockTree.statements()) {
+                statement.accept(this, thenScope);
+            }
+        } else {
+            ifTree.thenBranch().accept(this, thenScope);
+        }
+        
         if (ifTree.elseBranch() != null) {
             Namespace<VariableStatus> elseScope = new Namespace<>(data);
-            ifTree.elseBranch().accept(this, elseScope);
+            if (ifTree.elseBranch() instanceof BlockTree blockTree) {
+                for (var statement : blockTree.statements()) {
+                    statement.accept(this, elseScope);
+                }
+            } else {
+                ifTree.elseBranch().accept(this, elseScope);
+            }
+
             for (var name : thenScope.getValues()) {
+                //System.out.println(name);
+                //System.out.println(thenScope.isOnlyInitializedHere(name));
+                //System.out.println(elseScope.isOnlyInitializedHere(name));
                 if (thenScope.isOnlyInitializedHere(name) && elseScope.isOnlyInitializedHere(name)) {
                     data.put(new NameTree(name, null), VariableStatus.INITIALIZED, (_, replacement) -> replacement);
                 }
@@ -195,7 +212,13 @@ class VariableStatusAnalysis implements NoOpVisitor<Namespace<VariableStatusAnal
     @Override
     public Unit visit(ForTree forTree, Namespace<VariableStatus> data) {
         Namespace<VariableStatus> forScope = new Namespace<>(data);
-        forTree.initializer().accept(this, forScope);
+
+        if (forTree.initializer() instanceof DeclarationTree) {
+            forTree.initializer().accept(this, forScope);
+        } else {
+            forTree.initializer().accept(this, data);
+        }
+
         forTree.condition().accept(this, forScope);
         forTree.body().accept(this, forScope);
         forTree.increment().accept(this, forScope);
