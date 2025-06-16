@@ -235,6 +235,11 @@ class VariableStatusAnalysis implements NoOpVisitor<Namespace<VariableStatusAnal
         Namespace<VariableStatus> blockScope = new Namespace<>(data);
         for (var statement : blockTree.statements()) {
             statement.accept(this, blockScope);
+            for (var name : blockScope.getValues()) {
+                if (blockScope.isOnlyInitializedHere(name)) {
+                    data.put(new NameTree(name, null), VariableStatus.INITIALIZED, (_, replacement) -> replacement);
+                }
+            }
         }
         return Unit.INSTANCE;
     }

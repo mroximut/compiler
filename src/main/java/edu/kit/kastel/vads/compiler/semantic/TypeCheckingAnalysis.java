@@ -150,7 +150,7 @@ public class TypeCheckingAnalysis implements Visitor<Namespace<Type>, Type> {
         } else {
             lValueType = assignmentTree.lValue().accept(this, data);
             Type exprType = assignmentTree.expression().accept(this, data);
-            if (lValueType != BasicType.INT && exprType != BasicType.INT) {
+            if (lValueType != BasicType.INT || exprType != BasicType.INT) {
                 throw new SemanticException("This assignment operator requires integer operands");
             }
         }
