@@ -18,6 +18,9 @@ class VariableStatusAnalysis implements NoOpVisitor<Namespace<VariableStatusAnal
 
     @Override
     public Unit visit(AssignmentTree assignmentTree, Namespace<VariableStatus> data) {
+        assignmentTree.lValue().accept(this, data);
+        assignmentTree.expression().accept(this, data);
+
         switch (assignmentTree.lValue()) {
             case LValueIdentTree(var name) -> {
                 VariableStatus status = data.get(name);
@@ -55,6 +58,12 @@ class VariableStatusAnalysis implements NoOpVisitor<Namespace<VariableStatusAnal
 
     @Override
     public Unit visit(DeclarationTree declarationTree, Namespace<VariableStatus> data) {
+        declarationTree.type().accept(this, data);
+        declarationTree.name().accept(this, data);  
+        if (declarationTree.initializer() != null) {
+            declarationTree.initializer().accept(this, data);
+        }
+        
         checkUndeclared(declarationTree.name(), data.get(declarationTree.name()));
         VariableStatus status = declarationTree.initializer() == null
             ? VariableStatus.DECLARED
@@ -79,6 +88,7 @@ class VariableStatusAnalysis implements NoOpVisitor<Namespace<VariableStatusAnal
 
     @Override
     public Unit visit(IdentExpressionTree identExpressionTree, Namespace<VariableStatus> data) {
+        identExpressionTree.name().accept(this, data);
         VariableStatus status = data.get(identExpressionTree.name());
         checkInitialized(identExpressionTree.name(), status);
         return Unit.INSTANCE;
@@ -165,11 +175,14 @@ class VariableStatusAnalysis implements NoOpVisitor<Namespace<VariableStatusAnal
 
     @Override
     public Unit visit(LValueIdentTree lValueIdentTree, Namespace<VariableStatus> data) {
+        lValueIdentTree.name().accept(this, data);
         return Unit.INSTANCE;
     }
 
     @Override
     public Unit visit(FunctionTree functionTree, Namespace<VariableStatus> data) {
+        functionTree.returnType().accept(this, data);
+        functionTree.name().accept(this, data);
         Namespace<VariableStatus> functionScope = new Namespace<>(data);
         functionTree.body().accept(this, functionScope);
         return Unit.INSTANCE;
