@@ -64,7 +64,7 @@ public class Namespace<T> {
         //System.out.println(this.content.get(name));
         return (parent != null) &&
                (parent.get(new NameTree(name, null)) == VariableStatusAnalysis.VariableStatus.DECLARED) &&
-               (this.content.get(name) == VariableStatusAnalysis.VariableStatus.INITIALIZED);
+               (isAllDefined() || this.content.get(name) == VariableStatusAnalysis.VariableStatus.INITIALIZED);
     }
 
     public Set<Name> getValues() {
