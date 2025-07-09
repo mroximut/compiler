@@ -225,6 +225,9 @@ public class CodeGenerator {
                     return;
                 }
                 int pos = block.phiPos(phi);
+                if (predecessorSkipProj(phi, pos) instanceof UndefNode) {
+                    return;
+                }
                 String src = getPhysicalRegister(registers.get(predecessorSkipProj(phi, pos)));
                 String dest = getPhysicalRegister(registers.get(phi));
                 if (src.startsWith("-")) {
@@ -253,7 +256,7 @@ public class CodeGenerator {
                 builder.append("\n");
                 builder.append("  jmp ").append(targetLabel).append("\n");
             }
-            case UndefNode undef -> {
+            case UndefNode _ -> {
                 return;
             }
             case ShlNode shl -> shift(builder, registers, shl, "shll");
