@@ -171,6 +171,7 @@ public class CodeGenerator {
     }
 
     private void generateForBlock(Block block, List<Node> nodes, StringBuilder builder, Map<Node, Register> registers) {
+        System.out.println("We are in" +  block.label());
         for (Node node : nodes) {
             generateForNode(block, node, builder, registers);
         }
@@ -185,6 +186,7 @@ public class CodeGenerator {
     // }
 
     private void generateForNode(Block block, Node node, StringBuilder builder, Map<Node, Register> registers) {
+        System.out.println("We are in" +  node.toString());
         switch (node) {
             case AddNode add -> binary(builder, registers, add, "addl");
             case SubNode sub -> binary(builder, registers, sub, "subl");
@@ -269,6 +271,9 @@ public class CodeGenerator {
     }
 
     private static void binary(StringBuilder builder, Map<Node, Register> registers, BinaryOperationNode node, String opcode) {
+        if (node.left() instanceof UndefNode || node.right() instanceof UndefNode) {
+            return;
+        }
         String left = getPhysicalRegister(registers.get(predecessorSkipProj(node, BinaryOperationNode.LEFT)));
         String right = getPhysicalRegister(registers.get(predecessorSkipProj(node, BinaryOperationNode.RIGHT)));
         String dest = getPhysicalRegister(registers.get(node));

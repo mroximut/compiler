@@ -350,9 +350,9 @@ public class SsaTranslation {
             data.constructor.sealBlock(bodyBlock);
             forTree.body().accept(this, data);
 
-            //if (!returnsBreaksContinues(forTree.body())) {
+            if (!returnsBreaksContinues(forTree.body())) {
                 data.constructor.newJump(data.currentBlock(), incrementBlock);
-            //}
+            }
             data.constructor.setCurrentBlock(incrementBlock);
             forTree.increment().accept(this, data);
             data.constructor.sealBlock(incrementBlock);
@@ -391,18 +391,18 @@ public class SsaTranslation {
             data.constructor.sealBlock(thenBlock);
             ifTree.thenBranch().accept(this, data);
             
-            //if (!returnsBreaksContinues(ifTree.thenBranch())) {
+            if (!returnsBreaksContinues(ifTree.thenBranch())) {
                 data.constructor.newJump(data.currentBlock(), mergeBlock);
-            //}
+            }
             
             // Process else branch if it exists
             if (ifTree.elseBranch() != null) {
                 data.constructor.setCurrentBlock(elseBlock);
                 data.constructor.sealBlock(elseBlock);
                 ifTree.elseBranch().accept(this, data);
-                //if (!returnsBreaksContinues(ifTree.elseBranch())) {
+                if (!returnsBreaksContinues(ifTree.elseBranch())) {
                     data.constructor.newJump(data.currentBlock(), mergeBlock);
-                //}
+                }
             }
             
             // Continue with merge block
@@ -441,9 +441,9 @@ public class SsaTranslation {
             data.constructor.sealBlock(bodyBlock);
             whileTree.body().accept(this, data);
 
-            //if (!returnsBreaksContinues(whileTree.body())) {
+            if (!returnsBreaksContinues(whileTree.body())) {
                 data.constructor.newJump(data.currentBlock(), headerBlock);
-            //}
+            }
             data.constructor.sealBlock(headerBlock);
 
             // Continue with exit block after loop
