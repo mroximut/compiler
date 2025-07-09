@@ -242,6 +242,7 @@ public class CodeGenerator {
                 return;
             }
             case BranchNode branch -> {
+                System.out.println("Condition: " + branch.condition().toString());
                 String condition = getPhysicalRegister(registers.get(branch.condition()));
                 String trueLabel = ".L" + branch.trueBlock().label();
                 String falseLabel = ".L" + branch.falseBlock().label();
@@ -305,6 +306,9 @@ public class CodeGenerator {
     }
 
     private static void div(StringBuilder builder, Map<Node, Register> registers, BinaryOperationNode node, String resultReg) {
+        if (node.left() instanceof UndefNode || node.right() instanceof UndefNode) {
+            return;
+        }
         String left = getPhysicalRegister(registers.get(predecessorSkipProj(node, BinaryOperationNode.LEFT)));
         String right = getPhysicalRegister(registers.get(predecessorSkipProj(node, BinaryOperationNode.RIGHT)));
         String dest = getPhysicalRegister(registers.get(node));

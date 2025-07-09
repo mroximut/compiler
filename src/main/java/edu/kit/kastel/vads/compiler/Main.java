@@ -46,6 +46,7 @@ public class Main {
         }
 
         if ("vcg".equals(System.getenv("DUMP_GRAPHS")) || "vcg".equals(System.getProperty("dumpGraphs"))) {
+            System.out.println("Dumping graphs");
             Path tmp = output.toAbsolutePath().resolveSibling("graphs");
             //Files.createDirectory(tmp);
             for (IrGraph graph : graphs) {
