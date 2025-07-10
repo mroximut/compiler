@@ -160,8 +160,7 @@ class GraphConstructor {
         for (Node pred : phi.block().predecessors()) {
             phi.appendOperand(readVariable(variable, pred.block()));
         }
-        return phi;
-        //return tryRemoveTrivialPhi(phi);
+        return tryRemoveTrivialPhi(phi);
     }
 
     Node tryRemoveTrivialPhi(Phi phi) {

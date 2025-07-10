@@ -1,6 +1,8 @@
 package edu.kit.kastel.vads.compiler.ir.node;
 
 public final class BranchNode extends Node {
+    public static final int CONDITION = 0;
+    
     public BranchNode(Block block, Node condition, Block trueBlock, Block falseBlock) {
         super(block, condition);
         this.condition = condition;
@@ -13,7 +15,7 @@ public final class BranchNode extends Node {
     private final Block falseBlock;  
 
     public Node condition() {
-        return this.condition;
+        return predecessor(CONDITION);
     }
 
     public Block trueBlock() {

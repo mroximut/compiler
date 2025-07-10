@@ -213,7 +213,7 @@ public class CodeGenerator {
                     .append("\n").repeat(" ", 2)
                     .append("leave")
                     .append("\n").repeat(" ", 2)
-                    .append("ret");
+                    .append("ret").append("\n");
             }
             case ConstIntNode c -> builder.repeat(" ", 2)
                 .append("movl $")
