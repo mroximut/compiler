@@ -6,5 +6,6 @@ public sealed interface ExpressionTree extends Tree permits
     IdentExpressionTree,
     LiteralTree,
     TernaryTree,
-    UnaryOperationTree {
+    UnaryOperationTree,
+    FunctionCallTree {
 }

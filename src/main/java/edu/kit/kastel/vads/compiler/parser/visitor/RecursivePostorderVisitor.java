@@ -7,8 +7,11 @@ import edu.kit.kastel.vads.compiler.parser.ast.BlockTree;
 import edu.kit.kastel.vads.compiler.parser.ast.BreakTree;
 import edu.kit.kastel.vads.compiler.parser.ast.ContinueTree;
 import edu.kit.kastel.vads.compiler.parser.ast.DeclarationTree;
+import edu.kit.kastel.vads.compiler.parser.ast.ExpressionTree;
 import edu.kit.kastel.vads.compiler.parser.ast.ForTree;
+import edu.kit.kastel.vads.compiler.parser.ast.FunctionCallTree;
 import edu.kit.kastel.vads.compiler.parser.ast.FunctionTree;
+import edu.kit.kastel.vads.compiler.parser.ast.FunctionParameterTree;
 import edu.kit.kastel.vads.compiler.parser.ast.IdentExpressionTree;
 import edu.kit.kastel.vads.compiler.parser.ast.IfTree;
 import edu.kit.kastel.vads.compiler.parser.ast.LValueIdentTree;
@@ -96,6 +99,9 @@ public class RecursivePostorderVisitor<T, R> implements Visitor<T, R> {
     public R visit(FunctionTree functionTree, T data) {
         R r = functionTree.returnType().accept(this, data);
         r = functionTree.name().accept(this, accumulate(data, r));
+        for (FunctionParameterTree parameter : functionTree.parameters()) {
+            r = parameter.accept(this, accumulate(data, r));
+        }
         r = functionTree.body().accept(this, accumulate(data, r));
         r = this.visitor.visit(functionTree, accumulate(data, r));
         return r;
@@ -192,6 +198,23 @@ public class RecursivePostorderVisitor<T, R> implements Visitor<T, R> {
     @Override
     public R visit(NoOpTree noOpTree, T data) {
         return this.visitor.visit(noOpTree, data);
+    }
+
+    @Override
+    public R visit(FunctionCallTree functionCallTree, T data) {
+        R r = functionCallTree.name().accept(this, data);
+        for (ExpressionTree argument : functionCallTree.arguments()) {
+            r = argument.accept(this, accumulate(data, r));
+        }
+        r = this.visitor.visit(functionCallTree, accumulate(data, r));
+        return r;
+    }
+
+    @Override
+    public R visit(FunctionParameterTree functionParameterTree, T data) {
+        R r = functionParameterTree.type().accept(this, data);
+        r = functionParameterTree.name().accept(this, accumulate(data, r));
+        return r;
     }
 
     protected T accumulate(T data, R value) {

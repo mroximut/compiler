@@ -8,6 +8,8 @@ import edu.kit.kastel.vads.compiler.parser.ast.BreakTree;
 import edu.kit.kastel.vads.compiler.parser.ast.ContinueTree;
 import edu.kit.kastel.vads.compiler.parser.ast.DeclarationTree;
 import edu.kit.kastel.vads.compiler.parser.ast.ForTree;
+import edu.kit.kastel.vads.compiler.parser.ast.FunctionCallTree;
+import edu.kit.kastel.vads.compiler.parser.ast.FunctionParameterTree;
 import edu.kit.kastel.vads.compiler.parser.ast.FunctionTree;
 import edu.kit.kastel.vads.compiler.parser.ast.IdentExpressionTree;
 import edu.kit.kastel.vads.compiler.parser.ast.IfTree;
@@ -65,4 +67,8 @@ public interface Visitor<T, R> {
     R visit(TernaryTree ternaryTree, T data);
 
     R visit(NoOpTree noOpTree, T data);
+
+    R visit(FunctionCallTree functionCallTree, T data);
+
+    R visit(FunctionParameterTree functionParameterTree, T data);
 }

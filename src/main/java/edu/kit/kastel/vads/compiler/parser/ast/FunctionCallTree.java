@@ -5,10 +5,10 @@ import java.util.List;
 import edu.kit.kastel.vads.compiler.Span;
 import edu.kit.kastel.vads.compiler.parser.visitor.Visitor;
 
-public record FunctionTree(TypeTree returnType, NameTree name, List<FunctionParameterTree> parameters, BlockTree body) implements Tree {
+public record FunctionCallTree(NameTree name, List<ExpressionTree> arguments) implements StatementTree, ExpressionTree {
     @Override
     public Span span() {
-        return new Span.SimpleSpan(returnType().span().start(), body().span().end());
+        return new Span.SimpleSpan(name().span().start(), arguments.get(arguments.size() - 1).span().end());
     }
 
     @Override

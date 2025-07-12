@@ -32,6 +32,8 @@ import edu.kit.kastel.vads.compiler.parser.ast.BooleanLiteralTree;
 import edu.kit.kastel.vads.compiler.parser.ast.IfTree;
 import edu.kit.kastel.vads.compiler.parser.ast.WhileTree;
 import edu.kit.kastel.vads.compiler.parser.ast.ForTree;
+import edu.kit.kastel.vads.compiler.parser.ast.FunctionCallTree;
+import edu.kit.kastel.vads.compiler.parser.ast.FunctionParameterTree;
 import edu.kit.kastel.vads.compiler.parser.ast.BreakTree;
 import edu.kit.kastel.vads.compiler.parser.ast.ContinueTree;
 import edu.kit.kastel.vads.compiler.parser.ast.TernaryTree;
@@ -48,27 +50,62 @@ public class Parser {
     }
 
     public ProgramTree parseProgram() {
-        ProgramTree programTree = new ProgramTree(List.of(parseFunction()));
+        List<FunctionTree> functions = new ArrayList<>();
+        while (this.tokenSource.hasMore() && 
+        (this.tokenSource.peek().isKeyword(KeywordType.INT) || this.tokenSource.peek().isKeyword(KeywordType.BOOL))) {
+            functions.add(parseFunction());
+        }
         if (this.tokenSource.hasMore()) {
             throw new ParseException("expected end of input but got " + this.tokenSource.peek());
         }
-        return programTree;
+        return new ProgramTree(functions);
     }
 
     private FunctionTree parseFunction() {
-        Keyword returnType = this.tokenSource.expectKeyword(KeywordType.INT);
-        Identifier identifier = this.tokenSource.expectIdentifier();
-        if (!identifier.value().equals("main")) {
-            throw new ParseException("expected main function but got " + identifier);
-        }
+        TypeTree type = parseType();
+        NameTree name = functionName(this.tokenSource.expectIdentifier());
         this.tokenSource.expectSeparator(SeparatorType.PAREN_OPEN);
-        this.tokenSource.expectSeparator(SeparatorType.PAREN_CLOSE);
+        List<FunctionParameterTree> parameters = new ArrayList<>();
+        if (this.tokenSource.peek().isSeparator(SeparatorType.PAREN_CLOSE)) {
+            this.tokenSource.expectSeparator(SeparatorType.PAREN_CLOSE);
+            parameters = List.of();
+        } else {
+            parameters = parseParamsFollow();
+        }
         BlockTree body = parseBlock();
-        return new FunctionTree(
-            new TypeTree(BasicType.INT, returnType.span()),
-            name(identifier),
-            body
-        );
+        return new FunctionTree(type, name, parameters, body);
+    }
+
+    private TypeTree parseType() {
+        if (this.tokenSource.peek().isKeyword(KeywordType.INT)) {
+            this.tokenSource.expectKeyword(KeywordType.INT);
+            return new TypeTree(BasicType.INT, this.tokenSource.peek().span());
+        } else if (this.tokenSource.peek().isKeyword(KeywordType.BOOL)) {
+            this.tokenSource.expectKeyword(KeywordType.BOOL);
+            return new TypeTree(BasicType.BOOL, this.tokenSource.peek().span());
+        } else {
+            throw new ParseException("expected type (int or bool) but got " + this.tokenSource.peek());
+        }
+    }
+
+    private FunctionParameterTree parseFunctionParameter() {
+        TypeTree type = parseType();
+        Identifier ident = this.tokenSource.expectIdentifier();
+        return new FunctionParameterTree(type, name(ident));
+    }
+
+    private List<FunctionParameterTree> parseParamsFollow() {
+        List<FunctionParameterTree> parameters = new ArrayList<>();
+        while (true) {
+            parameters.add(parseFunctionParameter());
+            if (this.tokenSource.peek().isSeparator(SeparatorType.COMMA)) {
+                this.tokenSource.expectSeparator(SeparatorType.COMMA);
+            } else {
+                this.tokenSource.expectSeparator(SeparatorType.PAREN_CLOSE);
+                break;
+            }
+        }
+        return parameters;
     }
 
     private BlockTree parseBlock() {
@@ -95,9 +132,6 @@ public class Parser {
         } else if (this.tokenSource.peek().isKeyword(KeywordType.CONTINUE)) {
             statement = parseContinue();
             this.tokenSource.expectSeparator(SeparatorType.SEMICOLON);
-        } else if (this.tokenSource.peek().isKeyword(KeywordType.INT) || this.tokenSource.peek().isKeyword(KeywordType.BOOL)) {
-            statement = parseDeclaration();
-            this.tokenSource.expectSeparator(SeparatorType.SEMICOLON);
         } else if (this.tokenSource.peek().isKeyword(KeywordType.RETURN)) {
             statement = parseReturn();
             this.tokenSource.expectSeparator(SeparatorType.SEMICOLON);
@@ -111,30 +145,62 @@ public class Parser {
     }
 
     private StatementTree parseDeclaration() {
-        BasicType type;
-        if (this.tokenSource.peek().isKeyword(KeywordType.INT)) {
-            this.tokenSource.expectKeyword(KeywordType.INT);
-            type = BasicType.INT;
-        } else if (this.tokenSource.peek().isKeyword(KeywordType.BOOL)) {
-            this.tokenSource.expectKeyword(KeywordType.BOOL);
-            type = BasicType.BOOL;
-        } else {
-            throw new ParseException("expected type (int or bool) but got " + this.tokenSource.peek());
-        }
+        TypeTree type = parseType();
         Identifier ident = this.tokenSource.expectIdentifier();
         ExpressionTree expr = null;
         if (this.tokenSource.peek().isOperator(OperatorType.ASSIGN)) {
             this.tokenSource.expectOperator(OperatorType.ASSIGN);
             expr = parseExpression();
         }
-        return new DeclarationTree(new TypeTree(type, this.tokenSource.peek().span()), name(ident), expr);
+        return new DeclarationTree(type, name(ident), expr);
     }
 
     private StatementTree parseSimple() {
-        LValueTree lValue = parseLValue();
-        Operator assignmentOperator = parseAssignmentOperator();
-        ExpressionTree expression = parseExpression();
-        return new AssignmentTree(lValue, assignmentOperator, expression);
+        if (this.tokenSource.peek().isKeyword(KeywordType.INT) || this.tokenSource.peek().isKeyword(KeywordType.BOOL)) {
+            return parseDeclaration();
+        }
+        Identifier ident;
+        if (this.tokenSource.peek().isKeyword(KeywordType.PRINT) 
+        || this.tokenSource.peek().isKeyword(KeywordType.READ) 
+        || this.tokenSource.peek().isKeyword(KeywordType.FLUSH)) {
+            ident = new Identifier(this.tokenSource.peek().asString(), this.tokenSource.peek().span());
+        } else {
+            ident = parseIdentifier();
+        }
+        if (this.tokenSource.peek().isOperator(OperatorType.ASSIGN)) {
+            LValueTree lValue = new LValueIdentTree(name(ident));
+            Operator assignmentOperator = parseAssignmentOperator();
+            ExpressionTree expression = parseExpression();
+            return new AssignmentTree(lValue, assignmentOperator, expression);
+        } else {
+            return parseFunctionCall(ident);
+        }
+    }
+
+    private FunctionCallTree parseFunctionCall(Identifier ident) {
+        this.tokenSource.expectSeparator(SeparatorType.PAREN_OPEN);
+        if (this.tokenSource.peek().isSeparator(SeparatorType.PAREN_CLOSE)) {
+            this.tokenSource.expectSeparator(SeparatorType.PAREN_CLOSE);
+            return new FunctionCallTree(functionName(ident), List.of());
+        }
+        List<ExpressionTree> arguments = new ArrayList<>();
+        arguments.addAll(parseArgumentsFollow());
+        return new FunctionCallTree(functionName(ident), arguments);
+    }
+
+    private List<ExpressionTree> parseArgumentsFollow() {
+        List<ExpressionTree> arguments = new ArrayList<>();
+        while (true) {
+            arguments.add(parseExpression());
+            if (this.tokenSource.peek().isSeparator(SeparatorType.COMMA)) {
+                this.tokenSource.expectSeparator(SeparatorType.COMMA);
+            } else {
+                System.out.println("parseArgumentsFollow: -" + this.tokenSource.peek().asString() + "-");
+                this.tokenSource.expectSeparator(SeparatorType.PAREN_CLOSE);
+                break;
+            }
+        }
+        return arguments;
     }
 
     private Operator parseAssignmentOperator() {
@@ -149,6 +215,16 @@ public class Parser {
             };
         }
         throw new ParseException("expected assignment but got " + this.tokenSource.peek());
+    }
+
+    private Identifier parseIdentifier() {
+        if (this.tokenSource.peek().isSeparator(SeparatorType.PAREN_OPEN)) {
+            this.tokenSource.expectSeparator(SeparatorType.PAREN_OPEN);
+            Identifier identifier =  parseIdentifier();
+            this.tokenSource.expectSeparator(SeparatorType.PAREN_CLOSE);
+            return identifier;
+        }
+        return this.tokenSource.expectIdentifier();
     }
 
     private LValueTree parseLValue() {
@@ -169,6 +245,7 @@ public class Parser {
     }
 
     private ExpressionTree parseExpression() {
+
         return parseTernary();
     }
 
@@ -339,6 +416,9 @@ public class Parser {
             }
             case Identifier ident -> {
                 this.tokenSource.consume();
+                if (this.tokenSource.peek().isSeparator(SeparatorType.PAREN_OPEN))
+                    yield parseFunctionCall(ident);
+            
                 yield new IdentExpressionTree(name(ident));
             }
             case NumberLiteral(String value, int base, Span span) -> {
@@ -455,5 +535,9 @@ public class Parser {
 
     private static NameTree name(Identifier ident) {
         return new NameTree(Name.forIdentifier(ident), ident.span());
+    }
+
+    private static NameTree functionName(Identifier ident) {
+        return new NameTree(Name.forFuncIdentifier(ident), ident.span());
     }
 }

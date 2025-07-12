@@ -15,6 +15,8 @@ import edu.kit.kastel.vads.compiler.parser.ast.BreakTree;
 import edu.kit.kastel.vads.compiler.parser.ast.ContinueTree;
 import edu.kit.kastel.vads.compiler.parser.ast.DeclarationTree;
 import edu.kit.kastel.vads.compiler.parser.ast.ForTree;
+import edu.kit.kastel.vads.compiler.parser.ast.FunctionCallTree;
+import edu.kit.kastel.vads.compiler.parser.ast.FunctionParameterTree;
 import edu.kit.kastel.vads.compiler.parser.ast.FunctionTree;
 import edu.kit.kastel.vads.compiler.parser.ast.IdentExpressionTree;
 import edu.kit.kastel.vads.compiler.parser.ast.IfTree;
@@ -512,6 +514,18 @@ public class SsaTranslation {
                 }
             }
             return false;
+        }
+
+        @Override
+        public Optional<Node> visit(FunctionCallTree functionCallTree, SsaTranslation data) {
+            // TODO Auto-generated method stub
+            throw new UnsupportedOperationException("Unimplemented method 'visit'");
+        }
+
+        @Override
+        public Optional<Node> visit(FunctionParameterTree functionParameterTree, SsaTranslation data) {
+            // TODO Auto-generated method stub
+            throw new UnsupportedOperationException("Unimplemented method 'visit'");
         }
     }
 

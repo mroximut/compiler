@@ -7,6 +7,8 @@ import edu.kit.kastel.vads.compiler.parser.ast.BooleanLiteralTree;
 import edu.kit.kastel.vads.compiler.parser.ast.BreakTree;
 import edu.kit.kastel.vads.compiler.parser.ast.ContinueTree;
 import edu.kit.kastel.vads.compiler.parser.ast.ForTree;
+import edu.kit.kastel.vads.compiler.parser.ast.FunctionCallTree;
+import edu.kit.kastel.vads.compiler.parser.ast.FunctionParameterTree;
 import edu.kit.kastel.vads.compiler.parser.ast.IdentExpressionTree;
 import edu.kit.kastel.vads.compiler.parser.ast.IfTree;
 import edu.kit.kastel.vads.compiler.parser.ast.LValueIdentTree;
@@ -15,6 +17,7 @@ import edu.kit.kastel.vads.compiler.parser.ast.NameTree;
 import edu.kit.kastel.vads.compiler.parser.ast.ReturnTree;
 import edu.kit.kastel.vads.compiler.parser.ast.Tree;
 import edu.kit.kastel.vads.compiler.parser.ast.DeclarationTree;
+import edu.kit.kastel.vads.compiler.parser.ast.ExpressionTree;
 import edu.kit.kastel.vads.compiler.parser.ast.FunctionTree;
 import edu.kit.kastel.vads.compiler.parser.ast.ProgramTree;
 import edu.kit.kastel.vads.compiler.parser.ast.StatementTree;
@@ -60,11 +63,15 @@ public class Printer {
                 this.indentDepth--;
                 print("}");
             }
-            case FunctionTree(var returnType, var name, var body) -> {
+            case FunctionTree(var returnType, var name, var parameters, var body) -> {
                 printTree(returnType);
                 space();
                 printTree(name);
-                print("()");
+                print("(");
+                for (FunctionParameterTree parameter : parameters) {
+                    printTree(parameter);
+                }
+                print(")");
                 space();
                 printTree(body);
             }
@@ -168,6 +175,23 @@ public class Printer {
                 print(" : ");
                 printTree(falseExpr);
                 print(")");
+            }
+            case FunctionCallTree(var name, var arguments) -> {
+                printTree(name);
+                print("(");
+                ExpressionTree lastArgument = arguments.get(arguments.size() - 1);
+                for (ExpressionTree argument : arguments) {
+                    printTree(argument);
+                    if (argument != lastArgument) {
+                        print(", ");
+                    }
+                }
+                print(")");
+            }
+            case FunctionParameterTree(var type, var name) -> {
+                printTree(type);
+                space();
+                printTree(name);
             }
         }
     }

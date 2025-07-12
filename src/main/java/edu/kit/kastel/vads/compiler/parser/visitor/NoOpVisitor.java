@@ -8,6 +8,8 @@ import edu.kit.kastel.vads.compiler.parser.ast.BreakTree;
 import edu.kit.kastel.vads.compiler.parser.ast.ContinueTree;
 import edu.kit.kastel.vads.compiler.parser.ast.DeclarationTree;
 import edu.kit.kastel.vads.compiler.parser.ast.ForTree;
+import edu.kit.kastel.vads.compiler.parser.ast.FunctionCallTree;
+import edu.kit.kastel.vads.compiler.parser.ast.FunctionParameterTree;
 import edu.kit.kastel.vads.compiler.parser.ast.FunctionTree;
 import edu.kit.kastel.vads.compiler.parser.ast.IdentExpressionTree;
 import edu.kit.kastel.vads.compiler.parser.ast.IfTree;
@@ -128,6 +130,16 @@ public interface NoOpVisitor<T> extends Visitor<T, Unit> {
 
     @Override
     default Unit visit(NoOpTree noOpTree, T data) {
+        return Unit.INSTANCE;
+    }
+
+    @Override
+    default Unit visit(FunctionCallTree functionCallTree, T data) {
+        return Unit.INSTANCE;
+    }
+
+    @Override
+    default Unit visit(FunctionParameterTree functionParameterTree, T data) {
         return Unit.INSTANCE;
     }
 }

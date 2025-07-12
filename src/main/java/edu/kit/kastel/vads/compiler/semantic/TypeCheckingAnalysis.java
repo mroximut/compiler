@@ -1,8 +1,16 @@
 package edu.kit.kastel.vads.compiler.semantic;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import edu.kit.kastel.vads.compiler.Position;
+import edu.kit.kastel.vads.compiler.Span;
+import edu.kit.kastel.vads.compiler.lexer.Identifier;
 import edu.kit.kastel.vads.compiler.lexer.Operator.OperatorType;
 import edu.kit.kastel.vads.compiler.parser.ast.*;
+import edu.kit.kastel.vads.compiler.parser.symbol.Name;
 import edu.kit.kastel.vads.compiler.parser.type.BasicType;
+import edu.kit.kastel.vads.compiler.parser.type.FunctionType;
 import edu.kit.kastel.vads.compiler.parser.type.Type;
 import edu.kit.kastel.vads.compiler.parser.visitor.Visitor;
 
@@ -176,11 +184,18 @@ public class TypeCheckingAnalysis implements Visitor<Namespace<Type>, Type> {
     public Type visit(FunctionTree functionTree, Namespace<Type> data) {
         // Create a new scope that inherits from the parent scope
         Namespace<Type> functionScope = new Namespace<>(data);
+        Type declaredType = functionTree.returnType().accept(this, data);
+        functionScope.setReturnType(declaredType);
+
+        for (FunctionParameterTree parameter : functionTree.parameters()) {
+            Type parameterType = parameter.accept(this, functionScope);
+            functionScope.put(parameter.name(), parameterType, (_, replacement) -> replacement);
+        }
         
         // Process the function body
         functionTree.body().accept(this, functionScope);
         
-        return BasicType.INT;
+        return declaredType;
     }
 
     @Override
@@ -199,11 +214,47 @@ public class TypeCheckingAnalysis implements Visitor<Namespace<Type>, Type> {
 
     @Override
     public Type visit(ProgramTree programTree, Namespace<Type> data) {
-        // Create a new scope for the program (no parent scope needed)
-        Namespace<Type> programScope = new Namespace<>();
+        boolean hasMain = false;
         
-        // Process all top-level trees
-        for (var tree : programTree.topLevelTrees()) {
+        Namespace<Type> programScope = new Namespace<>();
+        Span simpleSpan = new Span.SimpleSpan(new Position.SimplePosition(0, 0), new Position.SimplePosition(0, 0));
+        Identifier print = new Identifier("print", simpleSpan);
+        Identifier read = new Identifier("read", simpleSpan);
+        Identifier flush = new Identifier("flush", simpleSpan);
+
+        programScope.putFunction(new NameTree(Name.forFuncIdentifier(print), simpleSpan), new FunctionType(BasicType.INT, List.of(BasicType.INT)), (_, replacement) -> replacement);
+        programScope.putFunction(new NameTree(Name.forFuncIdentifier(read), simpleSpan), new FunctionType(BasicType.INT, List.of()), (_, replacement) -> replacement);
+        programScope.putFunction(new NameTree(Name.forFuncIdentifier(flush), simpleSpan), new FunctionType(BasicType.INT, List.of()), (_, replacement) -> replacement);
+
+        for (FunctionTree functionTree : programTree.topLevelTrees()) {
+            if (functionTree.name().name().asString().equals("main")) {
+                hasMain = true;
+                if (functionTree.parameters().size() != 0) {
+                    throw new SemanticException("main function must have no parameters");
+                }
+                if (functionTree.returnType().type() != BasicType.INT) {
+                    throw new SemanticException("main function must return int");    
+                }
+            }
+            
+            if (data.get(functionTree.name()) != null) {
+                throw new SemanticException("Function already defined in this scope: " + functionTree.name().name());
+            }
+
+            List<Type> parameterTypes = new ArrayList<>();
+            for (FunctionParameterTree parameter : functionTree.parameters()) {
+                parameterTypes.add(parameter.accept(this, programScope));
+            }
+
+            programScope.putFunction(functionTree.name(), 
+                        new FunctionType(functionTree.returnType().accept(this, programScope), parameterTypes), (_, replacement) -> replacement);
+        }
+
+        if (!hasMain) {
+            throw new SemanticException("main function not found");
+        }
+        
+        for (FunctionTree tree : programTree.topLevelTrees()) {
             tree.accept(this, programScope);
         }
         
@@ -299,10 +350,32 @@ public class TypeCheckingAnalysis implements Visitor<Namespace<Type>, Type> {
     public Type visit(ReturnTree returnTree, Namespace<Type> data) {
             
         Type returnType = returnTree.expression().accept(this, data);
-        if (returnType != BasicType.INT) {
-            throw new SemanticException("Return statement must return an integer");
+        if (returnType != data.getReturnType()) {
+            throw new SemanticException("Return statement must return a " + data.getReturnType().asString());
         }
         //data.setAllDefined(true);
         return returnType;
+    }
+
+    @Override
+    public Type visit(FunctionParameterTree functionParameterTree, Namespace<Type> data) {
+        return functionParameterTree.type().accept(this, data);
+    }
+
+    @Override
+    public Type visit(FunctionCallTree functionCallTree, Namespace<Type> data) {
+        List<Type> arguments = new ArrayList<>();
+        for (ExpressionTree argument : functionCallTree.arguments()) {
+            arguments.add(argument.accept(this, data));
+        }
+        if (((FunctionType) data.getFunction(functionCallTree.name())).parameters().size() != arguments.size()) {
+            throw new SemanticException("Function call has wrong number of arguments");
+        }
+        for (int i = 0; i < arguments.size(); i++) {
+            if (((FunctionType) data.getFunction(functionCallTree.name())).parameters().get(i) != arguments.get(i)) {
+                throw new SemanticException("Function call has wrong argument type");
+            }
+        }
+        return ((FunctionType) data.getFunction(functionCallTree.name())).returnType();
     }
 } 

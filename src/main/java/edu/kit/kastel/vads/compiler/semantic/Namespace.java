@@ -13,22 +13,32 @@ import java.util.function.BinaryOperator;
 public class Namespace<T> {
 
     private final Map<Name, T> content;
+    private final Map<Name, T> functions;
     private final Namespace<T> parent;
+    private T returnType;
     private boolean allDefined = false;
     private Set<Name> allValues;
 
     public Namespace() {
         this.content = new HashMap<>();
+        this.functions = new HashMap<>();
         this.parent = null;
+        this.returnType = null;
         this.allValues = new HashSet<>();
     }
 
     public Namespace(Namespace<T> parent) {
         this.allValues = new HashSet<>();
         this.content = new HashMap<>();
+        this.functions = new HashMap<>();
         this.parent = parent;
+        this.returnType = parent.returnType;
         this.allDefined = parent.isAllDefined();
         this.allValues.addAll(parent.allValues);
+    }
+
+    public void putFunction(NameTree name, T value, BinaryOperator<T> merger) {
+        this.functions.merge(name.name(), value, merger);
     }
 
     public void put(NameTree name, T value, BinaryOperator<T> merger) {
@@ -40,6 +50,14 @@ public class Namespace<T> {
         T value = this.content.get(name.name());
         if (value == null && parent != null) {
             return parent.get(name);
+        }
+        return value;
+    }
+
+    public @Nullable T getFunction(NameTree name) {
+        T value = this.functions.get(name.name());
+        if (value == null && parent != null) {
+            return parent.getFunction(name);
         }
         return value;
     }
@@ -69,5 +87,13 @@ public class Namespace<T> {
 
     public Set<Name> getValues() {
         return this.allValues;
+    }
+
+    public void setReturnType(T returnType) {
+        this.returnType = returnType;
+    }
+
+    public T getReturnType() {
+        return this.returnType;
     }
 }

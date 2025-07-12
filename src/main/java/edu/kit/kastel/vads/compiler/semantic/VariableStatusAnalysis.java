@@ -203,7 +203,26 @@ class VariableStatusAnalysis implements NoOpVisitor<Namespace<VariableStatusAnal
         functionTree.returnType().accept(this, data);
         functionTree.name().accept(this, data);
         Namespace<VariableStatus> functionScope = new Namespace<>(data);
+        for (FunctionParameterTree parameter : functionTree.parameters()) {
+            parameter.accept(this, functionScope);
+        }
         functionTree.body().accept(this, functionScope);
+        return Unit.INSTANCE;
+    }
+
+    @Override
+    public Unit visit(FunctionParameterTree functionParameterTree, Namespace<VariableStatus> data) {
+        functionParameterTree.type().accept(this, data);
+        data.put(functionParameterTree.name(), VariableStatus.INITIALIZED, (_, replacement) -> replacement);
+        return Unit.INSTANCE;
+    }
+
+    @Override
+    public Unit visit(FunctionCallTree functionCallTree, Namespace<VariableStatus> data) {
+        functionCallTree.name().accept(this, data);
+        for (ExpressionTree argument : functionCallTree.arguments()) {
+            argument.accept(this, data);
+        }
         return Unit.INSTANCE;
     }
 
