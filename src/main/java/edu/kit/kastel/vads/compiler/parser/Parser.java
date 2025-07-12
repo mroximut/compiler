@@ -167,13 +167,13 @@ public class Parser {
         } else {
             ident = parseIdentifier();
         }
-        if (this.tokenSource.peek().isOperator(OperatorType.ASSIGN)) {
+        if (this.tokenSource.peek().isSeparator(SeparatorType.PAREN_OPEN)) {
+            return parseFunctionCall(ident);
+        } else {
             LValueTree lValue = new LValueIdentTree(name(ident));
             Operator assignmentOperator = parseAssignmentOperator();
             ExpressionTree expression = parseExpression();
             return new AssignmentTree(lValue, assignmentOperator, expression);
-        } else {
-            return parseFunctionCall(ident);
         }
     }
 
