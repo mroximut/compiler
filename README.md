@@ -1,4 +1,4 @@
-# Starter Code: Java
+# A Toy Compiler for a subset of the C0 language
 
 This project contains starter code written in Java 24.
 It contains:
